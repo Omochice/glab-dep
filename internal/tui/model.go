@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Omochice/glab-dep/internal/github"
+	"github.com/Omochice/glab-dep/internal/parser"
+	"github.com/Omochice/glab-dep/internal/types"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/jackchuka/gh-dep/internal/github"
-	"github.com/jackchuka/gh-dep/internal/parser"
-	"github.com/jackchuka/gh-dep/internal/types"
 )
 
 type ExecutionMode int

@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/jackchuka/gh-dep/internal/config"
+	"github.com/Omochice/glab-dep/internal/config"
 	"github.com/spf13/cobra"
 )
 

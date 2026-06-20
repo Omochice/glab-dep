@@ -7,10 +7,10 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/Omochice/glab-dep/internal/parser"
+	"github.com/Omochice/glab-dep/internal/types"
 	"github.com/cli/go-gh/v2"
 	"github.com/cli/go-gh/v2/pkg/api"
-	"github.com/jackchuka/gh-dep/internal/parser"
-	"github.com/jackchuka/gh-dep/internal/types"
 )
 
 // GetClient returns a GitHub REST API client

@@ -3,9 +3,9 @@ package tui
 import (
 	"fmt"
 
+	"github.com/Omochice/glab-dep/internal/github"
+	"github.com/Omochice/glab-dep/internal/types"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/jackchuka/gh-dep/internal/github"
-	"github.com/jackchuka/gh-dep/internal/types"
 )
 
 // executeSelected returns a command that executes actions on selected PRs

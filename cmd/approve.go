@@ -3,9 +3,9 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/jackchuka/gh-dep/internal/cache"
-	"github.com/jackchuka/gh-dep/internal/github"
-	"github.com/jackchuka/gh-dep/internal/ui"
+	"github.com/Omochice/glab-dep/internal/cache"
+	"github.com/Omochice/glab-dep/internal/github"
+	"github.com/Omochice/glab-dep/internal/ui"
 	"github.com/spf13/cobra"
 )
 

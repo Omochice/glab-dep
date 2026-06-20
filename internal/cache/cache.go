@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jackchuka/gh-dep/internal/types"
+	"github.com/Omochice/glab-dep/internal/types"
 )
 
 // GetCachePath returns the path to the cache file

@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Omochice/glab-dep/internal/types"
 	"github.com/cli/go-gh/v2/pkg/tableprinter"
 	"github.com/cli/go-gh/v2/pkg/term"
-	"github.com/jackchuka/gh-dep/internal/types"
 )
 
 // UI encapsulates display state and configuration

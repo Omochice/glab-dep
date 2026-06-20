@@ -3,10 +3,10 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/Omochice/glab-dep/internal/config"
+	"github.com/Omochice/glab-dep/internal/github"
+	"github.com/Omochice/glab-dep/internal/tui"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/jackchuka/gh-dep/internal/config"
-	"github.com/jackchuka/gh-dep/internal/github"
-	"github.com/jackchuka/gh-dep/internal/tui"
 	"github.com/spf13/cobra"
 )
 

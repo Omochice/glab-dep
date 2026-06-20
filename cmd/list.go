@@ -3,11 +3,11 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/jackchuka/gh-dep/internal/cache"
-	"github.com/jackchuka/gh-dep/internal/config"
-	"github.com/jackchuka/gh-dep/internal/github"
-	"github.com/jackchuka/gh-dep/internal/types"
-	"github.com/jackchuka/gh-dep/internal/ui"
+	"github.com/Omochice/glab-dep/internal/cache"
+	"github.com/Omochice/glab-dep/internal/config"
+	"github.com/Omochice/glab-dep/internal/github"
+	"github.com/Omochice/glab-dep/internal/types"
+	"github.com/Omochice/glab-dep/internal/ui"
 	"github.com/spf13/cobra"
 )
 

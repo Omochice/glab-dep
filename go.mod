@@ -1,4 +1,4 @@
-module github.com/jackchuka/gh-dep
+module github.com/Omochice/glab-dep
 
 go 1.26.1
 

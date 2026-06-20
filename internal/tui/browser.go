@@ -1,9 +1,9 @@
 package tui
 
 import (
+	"github.com/Omochice/glab-dep/internal/types"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/cli/go-gh/v2"
-	"github.com/jackchuka/gh-dep/internal/types"
 )
 
 func (m Model) openPRInBrowser(pr types.PR) tea.Cmd {
