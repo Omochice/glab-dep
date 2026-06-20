@@ -1,0 +1,42 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "timezone": "Asia/Tokyo",
+  "schedule": [
+    "before 9am on monday"
+  ],
+  "semanticCommits": "enabled",
+  "labels": [
+    "dependencies"
+  ],
+  "reviewers": [
+    "Omochice"
+  ],
+  "assignees": [
+    "Omochice"
+  ],
+  "packageRules": [
+    {
+      "matchManagers": [
+        "gomod"
+      ],
+      "semanticCommitType": "chore",
+      "semanticCommitScope": "deps",
+      "addLabels": [
+        "go"
+      ]
+    },
+    {
+      "matchManagers": [
+        "github-actions"
+      ],
+      "semanticCommitType": "ci",
+      "semanticCommitScope": "deps",
+      "addLabels": [
+        "github-actions"
+      ]
+    }
+  ]
+}
