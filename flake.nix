@@ -1,5 +1,5 @@
 {
-  description = "A GitHub CLI extension that streamlines the review and merge workflow for automated dependency update PRs";
+  description = "A GitLab CLI extension that streamlines the review and merge workflow for automated dependency update MRs";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixpkgs-unstable";
