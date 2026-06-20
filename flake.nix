@@ -126,6 +126,23 @@
           ]
           ++ actions;
         };
+        glab-dep = pkgs.buildGoModule {
+          pname = "glab-dep";
+          version = self.shortRev or self.dirtyShortRev or "dev";
+          src = self;
+          vendorHash = "sha256-rd2hgSyZHhp3AH/dSrOin+9SLLcd1l0zAeIxVvXyY7Y=";
+          # glab provides GitLab auth at runtime. Append it to PATH so the
+          # binary works standalone, while a user-installed glab still wins.
+          nativeBuildInputs = [ pkgs.makeWrapper ];
+          postInstall = ''
+            wrapProgram $out/bin/glab-dep \
+              --suffix PATH : ${pkgs.lib.makeBinPath [ pkgs.glab ]}
+          '';
+          meta = {
+            description = "A GitLab CLI extension that streamlines the review and merge workflow for automated dependency update MRs";
+            mainProgram = "glab-dep";
+          };
+        };
       in
       {
         # keep-sorted start block=yes
@@ -142,6 +159,7 @@
           ))
         ];
         formatter = treefmt.config.build.wrapper;
+        packages.default = glab-dep;
         # keep-sorted end
       }
     );
