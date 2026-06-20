@@ -14,7 +14,7 @@ updates:
       prefix: "deps"
       include: "scope"
     reviewers:
-      - "jackchuka"
+      - "Omochice"
     labels:
       - "dependencies"
       - "go"
@@ -31,9 +31,9 @@ updates:
       prefix: "ci"
       include: "scope"
     reviewers:
-      - "jackchuka"
+      - "Omochice"
     assignees:
-      - "jackchuka"
+      - "Omochice"
     labels:
       - "dependencies"
       - "github-actions"
