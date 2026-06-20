@@ -68,8 +68,8 @@ gh dep --owner myorg
 - Select PRs with `space` or `a` (select all)
 - Toggle action mode with `m` (Approve → Merge → Approve & Merge)
 - Adjust merge settings on-the-fly:
-  - `M` - Toggle merge method (squash → merge → rebase)
-  - `c` - Toggle CI checks requirement
+    - `M` - Toggle merge method (squash → merge → rebase)
+    - `c` - Toggle CI checks requirement
 - Search PRs with `/`
 - Open current PR in browser with `o`
 - Execute selected actions with `x`
@@ -118,9 +118,9 @@ Launch an interactive terminal UI for managing dependency PRs with:
 - **Navigation**: `↑/↓` or `j/k` to move, `o` to open PR in browser
 - **Search**: Press `/` to filter PRs by title, repo, or number
 - **Live Settings**: Toggle execution mode and merge settings without restarting
-  - `m` - Action mode (Approve → Merge → Approve & Merge)
-  - `M` - Merge method (squash → merge → rebase)
-  - `c` - CI checks requirement
+    - `m` - Action mode (Approve → Merge → Approve & Merge)
+    - `M` - Merge method (squash → merge → rebase)
+    - `c` - CI checks requirement
 - **Execute**: Press `x` to run selected actions with real-time feedback
 - **Help**: Press `?` to view all keyboard shortcuts
 
@@ -330,7 +330,7 @@ gh config set dep.patterns "bump\s+([^\s]+)\s+from\s+[^\s]+\s+to\s+(\d+(?:\.\d+)
 
 Groups are cached at:
 
-```
+```text
 ${XDG_CACHE_HOME:-$HOME/.cache}/gh-dep/groups.json
 ```
 
@@ -429,4 +429,4 @@ Built with:
 
 ---
 
-**Made with ❤️ for dependency management automation**
+## Made with ❤️ for dependency management automation
