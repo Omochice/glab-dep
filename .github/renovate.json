@@ -3,9 +3,6 @@
   "extends": [
     "github>Omochice/personal-renovate-config#v1.15.0"
   ],
-  "labels": [
-    "dependencies"
-  ],
   "reviewers": [
     "Omochice"
   ],
@@ -18,20 +15,14 @@
         "gomod"
       ],
       "semanticCommitType": "chore",
-      "semanticCommitScope": "deps",
-      "addLabels": [
-        "go"
-      ]
+      "semanticCommitScope": "deps"
     },
     {
       "matchManagers": [
         "github-actions"
       ],
       "semanticCommitType": "ci",
-      "semanticCommitScope": "deps",
-      "addLabels": [
-        "github-actions"
-      ]
+      "semanticCommitScope": "deps"
     }
   ]
 }
