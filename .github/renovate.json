@@ -8,21 +8,5 @@
   ],
   "assignees": [
     "Omochice"
-  ],
-  "packageRules": [
-    {
-      "matchManagers": [
-        "gomod"
-      ],
-      "semanticCommitType": "chore",
-      "semanticCommitScope": "deps"
-    },
-    {
-      "matchManagers": [
-        "github-actions"
-      ],
-      "semanticCommitType": "ci",
-      "semanticCommitScope": "deps"
-    }
   ]
 }
