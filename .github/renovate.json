@@ -1,13 +1,8 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:recommended"
+    "github>Omochice/personal-renovate-config#v1.15.0"
   ],
-  "timezone": "Asia/Tokyo",
-  "schedule": [
-    "before 9am on monday"
-  ],
-  "semanticCommits": "enabled",
   "labels": [
     "dependencies"
   ],
