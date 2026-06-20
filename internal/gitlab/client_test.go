@@ -2,121 +2,55 @@ package gitlab
 
 import "testing"
 
-func TestDeriveCIState(t *testing.T) {
+func TestNormalizePipelineStatus(t *testing.T) {
 	tests := []struct {
 		name   string
-		suites checkSuiteResponse
-		status statusResponse
+		status string
 		want   string
 	}{
-		{
-			name: "check suites success",
-			suites: checkSuiteResponse{
-				CheckSuites: []checkSuite{
-					{Status: "completed", Conclusion: strPtr("success")},
-				},
-			},
-			status: statusResponse{},
-			want:   "success",
-		},
-		{
-			name: "check suites failure",
-			suites: checkSuiteResponse{
-				CheckSuites: []checkSuite{
-					{Status: "completed", Conclusion: strPtr("failure")},
-				},
-			},
-			status: statusResponse{},
-			want:   "failure",
-		},
-		{
-			name: "queued suite ignored when another succeeds",
-			suites: checkSuiteResponse{
-				CheckSuites: []checkSuite{
-					{Status: "queued"},
-					{Status: "completed", Conclusion: strPtr("success")},
-				},
-			},
-			status: statusResponse{},
-			want:   "success",
-		},
-		{
-			name: "status pending overrides success",
-			suites: checkSuiteResponse{
-				CheckSuites: []checkSuite{
-					{Status: "completed", Conclusion: strPtr("success")},
-				},
-			},
-			status: statusResponse{
-				Statuses: []statusContext{
-					{State: "pending"},
-				},
-			},
-			want: "pending",
-		},
-		{
-			name: "status failure overrides suite success",
-			suites: checkSuiteResponse{
-				CheckSuites: []checkSuite{
-					{Status: "completed", Conclusion: strPtr("success")},
-				},
-			},
-			status: statusResponse{
-				Statuses: []statusContext{
-					{State: "failure"},
-				},
-			},
-			want: "failure",
-		},
-		{
-			name: "status success without suites",
-			status: statusResponse{
-				Statuses: []statusContext{
-					{State: "success"},
-				},
-			},
-			want: "success",
-		},
-		{
-			name: "status failure without suites",
-			status: statusResponse{
-				Statuses: []statusContext{
-					{State: "failure"},
-				},
-			},
-			want: "failure",
-		},
-		{
-			name: "status pending without suites",
-			status: statusResponse{
-				Statuses: []statusContext{
-					{State: "pending"},
-				},
-			},
-			want: "pending",
-		},
-		{
-			name: "suite in progress is pending",
-			suites: checkSuiteResponse{
-				CheckSuites: []checkSuite{
-					{Status: "in_progress"},
-				},
-			},
-			status: statusResponse{},
-			want:   "pending",
-		},
+		{name: "success", status: "success", want: "success"},
+		{name: "skipped counts as success", status: "skipped", want: "success"},
+		{name: "failed", status: "failed", want: "failure"},
+		{name: "canceled", status: "canceled", want: "failure"},
+		{name: "running is pending", status: "running", want: "pending"},
+		{name: "manual is pending", status: "manual", want: "pending"},
+		{name: "no pipeline stays empty", status: "", want: ""},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := deriveCIState(tt.suites, tt.status)
+			got := normalizePipelineStatus(tt.status)
 			if got != tt.want {
-				t.Fatalf("deriveCIState() = %q, want %q", got, tt.want)
+				t.Fatalf("normalizePipelineStatus(%q) = %q, want %q", tt.status, got, tt.want)
 			}
 		})
 	}
 }
 
-func strPtr(s string) *string {
-	return &s
+func TestProjectPathFromURL(t *testing.T) {
+	tests := []struct {
+		name   string
+		webURL string
+		want   string
+	}{
+		{
+			name:   "simple project",
+			webURL: "https://gitlab.com/group/project/-/merge_requests/12",
+			want:   "group/project",
+		},
+		{
+			name:   "subgroup project",
+			webURL: "https://gitlab.example.com/group/sub/project/-/merge_requests/3",
+			want:   "group/sub/project",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := projectPathFromURL(tt.webURL)
+			if got != tt.want {
+				t.Fatalf("projectPathFromURL(%q) = %q, want %q", tt.webURL, got, tt.want)
+			}
+		})
+	}
 }

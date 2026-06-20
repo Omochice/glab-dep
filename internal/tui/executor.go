@@ -68,44 +68,13 @@ func (m *Model) approveMR(mr types.MR) ExecutionResult {
 }
 
 func (m *Model) mergeMR(mr types.MR) ExecutionResult {
-	// Check CI status if required
+	// When checks are required, delegate gating to GitLab's native auto-merge
+	// (merge when the pipeline succeeds) instead of polling the pipeline here.
+	err := gitlab.MergeMR(mr.Project, mr.IID, m.mergeMethod, m.requireChecks)
+	action := "merge"
 	if m.requireChecks {
-		headSHA := mr.HeadSHA
-		if headSHA == "" {
-			sha, err := gitlab.GetMRHead(mr.Project, mr.IID)
-			if err != nil {
-				return ExecutionResult{
-					MR:      mr,
-					Action:  "merge (skipped)",
-					Success: false,
-					Error:   fmt.Errorf("failed to fetch MR head: %w", err),
-				}
-			}
-			headSHA = sha
-		}
-
-		status, err := gitlab.GetPipelineStatus(mr.Project, headSHA)
-		if err != nil {
-			return ExecutionResult{
-				MR:      mr,
-				Action:  "merge (skipped)",
-				Success: false,
-				Error:   fmt.Errorf("failed to check CI status: %w", err),
-			}
-		}
-
-		if !status.AllPassed {
-			return ExecutionResult{
-				MR:      mr,
-				Action:  "merge (skipped)",
-				Success: false,
-				Error:   fmt.Errorf("CI checks not passing (state: %s)", status.State),
-			}
-		}
+		action = "merge (auto)"
 	}
-
-	err := gitlab.MergeMR(mr.Project, mr.IID, m.mergeMethod)
-	action := "merge (api)"
 
 	return ExecutionResult{
 		MR:      mr,

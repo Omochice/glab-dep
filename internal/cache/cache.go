@@ -19,7 +19,7 @@ func GetCachePath() (string, error) {
 		cacheDir = filepath.Join(home, ".cache")
 	}
 
-	depCache := filepath.Join(cacheDir, "gh-dep")
+	depCache := filepath.Join(cacheDir, "glab-dep")
 	if err := os.MkdirAll(depCache, 0755); err != nil {
 		return "", err
 	}

@@ -28,7 +28,7 @@ func init() {
 
 	mergeCmd.Flags().BoolVar(&mergeDryRun, "dry-run", false, "Print actions without executing")
 	mergeCmd.Flags().StringVar(&mergeMethod, "method", "squash", "Merge method: merge, squash, or rebase")
-	mergeCmd.Flags().BoolVar(&mergeRequireChecks, "require-checks", true, "Require CI checks to pass")
+	mergeCmd.Flags().BoolVar(&mergeRequireChecks, "require-checks", true, "Merge only when the pipeline succeeds (GitLab auto-merge)")
 }
 
 func runMerge(cmd *cobra.Command, args []string) error {
@@ -53,41 +53,24 @@ func runMerge(cmd *cobra.Command, args []string) error {
 	display := ui.New(mrs, false)
 
 	for _, mr := range mrs {
-		if mergeRequireChecks {
-			headSHA := mr.HeadSHA
-			if headSHA == "" {
-				sha, err := gitlab.GetMRHead(mr.Project, mr.IID)
-				if err != nil {
-					display.PrintAction("skipped", mr, fmt.Sprintf("failed to fetch MR head: %v", err))
-					continue
-				}
-				headSHA = sha
-			}
-
-			status, err := gitlab.GetPipelineStatus(mr.Project, headSHA)
-			if err != nil {
-				display.PrintAction("skipped", mr, fmt.Sprintf("failed to check CI status: %v", err))
-				continue
-			}
-
-			if !status.AllPassed {
-				display.PrintAction("skipped", mr, fmt.Sprintf("CI checks not passing (state: %s)", status.State))
-				continue
-			}
-		}
-
 		if mergeDryRun {
 			display.PrintAction("[dry-run] merge", mr)
 			continue
 		}
 
-		mergeErr := gitlab.MergeMR(mr.Project, mr.IID, mergeMethod)
+		// With --require-checks, GitLab merges the MR once its pipeline
+		// succeeds (native auto-merge) rather than us gating it here.
+		mergeErr := gitlab.MergeMR(mr.Project, mr.IID, mergeMethod, mergeRequireChecks)
 		if mergeErr != nil {
 			display.PrintError("merge", mr, mergeErr)
 			continue
 		}
 
-		display.PrintAction("merge", mr, "via API")
+		if mergeRequireChecks {
+			display.PrintAction("merge", mr, "auto-merge when pipeline succeeds")
+		} else {
+			display.PrintAction("merge", mr)
+		}
 	}
 
 	return nil

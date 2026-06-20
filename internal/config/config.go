@@ -3,46 +3,46 @@ package config
 import (
 	"strings"
 
-	"github.com/cli/go-gh/v2/pkg/config"
+	"github.com/Omochice/glab-dep/internal/glab"
 )
 
-// Config holds all configuration values from gh config
+// Config holds all configuration values read from glab config.
 type Config struct {
 	Repos    []string // dep.repo (comma-separated)
 	Patterns []string // dep.patterns (comma-separated regex patterns)
+	Author   string   // dep.author (default dependency bot username)
 }
 
-// Load reads configuration from gh config
-// Returns a Config with zero values if no config is set
+// Load reads configuration from glab config.
+// Returns a Config with zero values when nothing is set.
 func Load() (*Config, error) {
-	ghCfg, err := config.Read(nil)
-	if err != nil {
-		return nil, err
+	cfg := &Config{
+		Repos:    splitList(get("dep.repo")),
+		Patterns: splitList(get("dep.patterns")),
+		Author:   strings.TrimSpace(get("dep.author")),
 	}
-
-	cfg := &Config{}
-
-	if repos, err := ghCfg.Get([]string{"dep.repo"}); err == nil && repos != "" {
-		parts := strings.SplitSeq(repos, ",")
-		for part := range parts {
-			part = strings.TrimSpace(part)
-			if part != "" {
-				cfg.Repos = append(cfg.Repos, part)
-			}
-		}
-	}
-
-	if patterns, err := ghCfg.Get([]string{"dep.patterns"}); err == nil && patterns != "" {
-		parts := strings.SplitSeq(patterns, ",")
-		for part := range parts {
-			part = strings.TrimSpace(part)
-			if part != "" {
-				cfg.Patterns = append(cfg.Patterns, part)
-			}
-		}
-	}
-
 	return cfg, nil
+}
+
+// get reads a single glab config key, returning an empty string when unset
+// or when glab is unavailable (config is optional, so errors are not fatal).
+func get(key string) string {
+	out, err := glab.Run("config", "get", key)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(out)
+}
+
+func splitList(value string) []string {
+	var items []string
+	for _, part := range strings.Split(value, ",") {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			items = append(items, part)
+		}
+	}
+	return items
 }
 
 // GetRepos returns the configured repos or nil if not set
@@ -53,4 +53,9 @@ func (c *Config) GetRepos() []string {
 // GetPatterns returns the configured patterns or nil if not set
 func (c *Config) GetPatterns() []string {
 	return c.Patterns
+}
+
+// GetAuthor returns the configured default author or an empty string if not set
+func (c *Config) GetAuthor() string {
+	return c.Author
 }

@@ -18,32 +18,28 @@ var listCmd = &cobra.Command{
 }
 
 var (
-	listLabel           string
-	listAuthor          string
-	listGroup           bool
-	listLimit           int
-	listRepo            string
-	listOwner           string
-	listJSON            bool
-	listReviewRequested string
-	listArchived        bool
-	listBot             string
+	listLabel    string
+	listAuthor   string
+	listGroup    bool
+	listLimit    int
+	listRepo     string
+	listGroupArg string
+	listJSON     bool
+	listReviewer string
 )
 
 func init() {
-	listCmd.Flags().BoolVar(&listGroup, "group", false, "Group PRs by package@version")
+	listCmd.Flags().BoolVar(&listGroup, "group", false, "Group MRs by package@version")
 	listCmd.Flags().BoolVar(&listJSON, "json", false, "Output as JSON")
 
-	listCmd.Flags().IntVar(&listLimit, "limit", 200, "Max PRs to fetch per repo")
+	listCmd.Flags().IntVar(&listLimit, "limit", 200, "Max MRs to fetch per project")
 
 	// additional filters
-	listCmd.Flags().StringVarP(&listRepo, "repo", "R", "", "Target repo(s), comma-separated")
-	listCmd.Flags().StringVar(&listLabel, "label", "", "PR label to filter")
-	listCmd.Flags().StringVar(&listAuthor, "author", "", "PR author to filter")
-	listCmd.Flags().StringVar(&listBot, "bot", "all", "Dependency bot to target: all, dependabot, or renovate (overridden by --author)")
-	listCmd.Flags().StringVar(&listOwner, "owner", "", "Target owner (user or org)")
-	listCmd.Flags().StringVar(&listReviewRequested, "review-requested", "", "Filter PRs by review requested from user or team (e.g., '@me' or 'username')")
-	listCmd.Flags().BoolVar(&listArchived, "archived", false, "Include PRs from archived repositories")
+	listCmd.Flags().StringVarP(&listRepo, "repo", "R", "", "Target project(s) (GROUP/PROJECT), comma-separated")
+	listCmd.Flags().StringVar(&listLabel, "label", "", "MR label to filter")
+	listCmd.Flags().StringVar(&listAuthor, "author", "", "MR author username (defaults to the Renovate bot)")
+	listCmd.Flags().StringVar(&listGroupArg, "group-path", "", "Target GitLab group/subgroup full path")
+	listCmd.Flags().StringVar(&listReviewer, "reviewer", "", "Filter MRs by reviewer username")
 }
 
 func runList(cmd *cobra.Command, args []string) error {
@@ -53,21 +49,17 @@ func runList(cmd *cobra.Command, args []string) error {
 	}
 
 	label := listLabel
-	authors, err := resolveAuthors(cmd, listAuthor, listBot)
-	if err != nil {
-		return err
-	}
+	authors := resolveAuthors(cmd, listAuthor, cfg)
 
-	owner, repos := resolveScope(cmd, listRepo, listOwner, cfg)
+	group, repos := resolveScope(cmd, listRepo, listGroupArg, cfg)
 
 	searchParams := gitlab.SearchParams{
-		Owner:           owner,
-		Repos:           repos,
-		Label:           label,
-		Authors:         authors,
-		Limit:           listLimit,
-		ReviewRequested: listReviewRequested,
-		Archived:        listArchived,
+		Group:    group,
+		Repos:    repos,
+		Label:    label,
+		Authors:  authors,
+		Limit:    listLimit,
+		Reviewer: listReviewer,
 	}
 
 	allMRs, err := gitlab.SearchMRs(searchParams)

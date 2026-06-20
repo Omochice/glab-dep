@@ -11,17 +11,15 @@ import (
 )
 
 var (
-	rootLabel           string
-	rootAuthor          string
-	rootLimit           int
-	rootRepo            string
-	rootOwner           string
-	rootMergeMethod     string
-	rootRequireCheck    bool
-	rootMode            string
-	rootReviewRequested string
-	rootArchived        bool
-	rootBot             string
+	rootLabel        string
+	rootAuthor       string
+	rootLimit        int
+	rootRepo         string
+	rootGroup        string
+	rootMergeMethod  string
+	rootRequireCheck bool
+	rootMode         string
+	rootReviewer     string
 )
 
 var rootCmd = &cobra.Command{
@@ -45,20 +43,16 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	owner, repos := resolveScope(cmd, rootRepo, rootOwner, cfg)
-	authors, err := resolveAuthors(cmd, rootAuthor, rootBot)
-	if err != nil {
-		return err
-	}
+	group, repos := resolveScope(cmd, rootRepo, rootGroup, cfg)
+	authors := resolveAuthors(cmd, rootAuthor, cfg)
 
 	searchParams := gitlab.SearchParams{
-		Owner:           owner,
-		Repos:           repos,
-		Label:           rootLabel,
-		Authors:         authors,
-		Limit:           rootLimit,
-		ReviewRequested: rootReviewRequested,
-		Archived:        rootArchived,
+		Group:    group,
+		Repos:    repos,
+		Label:    rootLabel,
+		Authors:  authors,
+		Limit:    rootLimit,
+		Reviewer: rootReviewer,
 	}
 
 	allMRs, err := gitlab.SearchMRs(searchParams)
@@ -94,17 +88,15 @@ func runRoot(cmd *cobra.Command, args []string) error {
 }
 
 func init() {
-	rootCmd.Flags().IntVar(&rootLimit, "limit", 200, "Max PRs to fetch per repo")
-	rootCmd.Flags().StringVar(&rootLabel, "label", "", "PR label to filter")
-	rootCmd.Flags().StringVar(&rootAuthor, "author", "", "PR author to filter")
-	rootCmd.Flags().StringVar(&rootBot, "bot", "all", "Dependency bot to target: all, dependabot, or renovate (overridden by --author)")
-	rootCmd.Flags().StringVarP(&rootRepo, "repo", "R", "", "Target repo(s), comma-separated")
-	rootCmd.Flags().StringVar(&rootOwner, "owner", "", "Target owner (user or org)")
+	rootCmd.Flags().IntVar(&rootLimit, "limit", 200, "Max MRs to fetch per project")
+	rootCmd.Flags().StringVar(&rootLabel, "label", "", "MR label to filter")
+	rootCmd.Flags().StringVar(&rootAuthor, "author", "", "MR author username (defaults to the Renovate bot)")
+	rootCmd.Flags().StringVarP(&rootRepo, "repo", "R", "", "Target project(s) (GROUP/PROJECT), comma-separated")
+	rootCmd.Flags().StringVar(&rootGroup, "group-path", "", "Target GitLab group/subgroup full path")
 	rootCmd.Flags().StringVar(&rootMergeMethod, "merge-method", "squash", "Merge method: merge, squash, or rebase")
-	rootCmd.Flags().BoolVar(&rootRequireCheck, "require-checks", false, "Require CI checks to pass")
+	rootCmd.Flags().BoolVar(&rootRequireCheck, "require-checks", false, "Merge only when the pipeline succeeds (GitLab auto-merge)")
 	rootCmd.Flags().StringVar(&rootMode, "mode", "approve", "Execution mode: approve, merge, or approve-and-merge (both)")
-	rootCmd.Flags().StringVar(&rootReviewRequested, "review-requested", "", "Filter PRs by review requested from user or team (e.g., '@me' or 'username')")
-	rootCmd.Flags().BoolVar(&rootArchived, "archived", false, "Include PRs from archived repositories")
+	rootCmd.Flags().StringVar(&rootReviewer, "reviewer", "", "Filter MRs by reviewer username")
 
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(groupsCmd)
