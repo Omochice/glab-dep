@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Omochice/glab-dep/internal/config"
-	"github.com/Omochice/glab-dep/internal/github"
+	"github.com/Omochice/glab-dep/internal/gitlab"
 	"github.com/Omochice/glab-dep/internal/tui"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
@@ -25,10 +25,10 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "gh-dep",
-	Short: "Streamline dependency PR review and merge workflow",
-	Long: `gh-dep is a GitHub CLI extension that helps you manage automated
-dependency update PRs by grouping, bulk approving, and bulk merging them.
+	Use:   "glab-dep",
+	Short: "Streamline dependency MR review and merge workflow",
+	Long: `glab-dep is a GitLab CLI extension that helps you manage automated
+dependency update MRs by grouping, bulk approving, and bulk merging them.
 
 When run without subcommands, launches interactive TUI mode.`,
 	SilenceUsage: true,
@@ -51,7 +51,7 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	searchParams := github.SearchParams{
+	searchParams := gitlab.SearchParams{
 		Owner:           owner,
 		Repos:           repos,
 		Label:           rootLabel,
@@ -61,13 +61,13 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		Archived:        rootArchived,
 	}
 
-	allPRs, err := github.SearchPRs(searchParams)
+	allMRs, err := gitlab.SearchMRs(searchParams)
 	if err != nil {
-		return fmt.Errorf("failed to search PRs: %w", err)
+		return fmt.Errorf("failed to search MRs: %w", err)
 	}
 
-	if len(allPRs) == 0 {
-		fmt.Println("No dependency PRs found")
+	if len(allMRs) == 0 {
+		fmt.Println("No dependency MRs found")
 		return nil
 	}
 
@@ -83,7 +83,7 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	}
 
 	// Launch TUI
-	model := tui.NewModel(allPRs, rootMergeMethod, rootRequireCheck, mode, searchParams, cfg.GetPatterns())
+	model := tui.NewModel(allMRs, rootMergeMethod, rootRequireCheck, mode, searchParams, cfg.GetPatterns())
 
 	p := tea.NewProgram(model, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {

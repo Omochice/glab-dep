@@ -15,34 +15,34 @@ import (
 
 // UI encapsulates display state and configuration
 type UI struct {
-	multiRepo bool
-	json      bool
+	multiProject bool
+	json         bool
 }
 
 // New creates a new UI instance
-// Automatically detects if PRs span multiple repos
-func New(prs []types.PR, json bool) *UI {
+// Automatically detects if MRs span multiple projects
+func New(mrs []types.MR, json bool) *UI {
 	return &UI{
-		multiRepo: isMultiRepo(prs),
-		json:      json,
+		multiProject: isMultiProject(mrs),
+		json:         json,
 	}
 }
 
-// NewFromGroups creates a new UI instance from grouped PRs
-func NewFromGroups(groups map[string][]types.PR, json bool) *UI {
+// NewFromGroups creates a new UI instance from grouped MRs
+func NewFromGroups(groups map[string][]types.MR, json bool) *UI {
 	return &UI{
-		multiRepo: isMultiRepoGroups(groups),
-		json:      json,
+		multiProject: isMultiProjectGroups(groups),
+		json:         json,
 	}
 }
 
-// DisplayList prints PRs in a flat list format (JSON or table-like)
-func (u *UI) DisplayList(prs []types.PR) error {
+// DisplayList prints MRs in a flat list format (JSON or table-like)
+func (u *UI) DisplayList(mrs []types.MR) error {
 	if u.json {
-		return u.displayListJSON(prs)
+		return u.displayListJSON(mrs)
 	}
 
-	if len(prs) == 0 {
+	if len(mrs) == 0 {
 		return nil
 	}
 
@@ -50,19 +50,19 @@ func (u *UI) DisplayList(prs []types.PR) error {
 	termWidth, _, _ := term.FromEnv().Size()
 	table := tableprinter.New(os.Stdout, isTTY, termWidth)
 
-	table.AddHeader([]string{"REPO", "PR", "TITLE"})
-	for _, pr := range prs {
-		table.AddField(pr.Repo)
-		table.AddField("#" + strconv.Itoa(pr.Number))
-		table.AddField(pr.Title)
+	table.AddHeader([]string{"PROJECT", "MR", "TITLE"})
+	for _, mr := range mrs {
+		table.AddField(mr.Project)
+		table.AddField("!" + strconv.Itoa(mr.IID))
+		table.AddField(mr.Title)
 		table.EndRow()
 	}
 
 	return table.Render()
 }
 
-// DisplayGroups prints PRs grouped by package@version (JSON or hierarchical format)
-func (u *UI) DisplayGroups(groups map[string][]types.PR) error {
+// DisplayGroups prints MRs grouped by package@version (JSON or hierarchical format)
+func (u *UI) DisplayGroups(groups map[string][]types.MR) error {
 	if u.json {
 		return u.displayGroupsJSON(groups)
 	}
@@ -79,20 +79,20 @@ func (u *UI) DisplayGroups(groups map[string][]types.PR) error {
 
 	// Create single table for all groups
 	table := tableprinter.New(os.Stdout, isTTY, termWidth)
-	table.AddHeader([]string{"GROUP", "REPO", "PR", "URL"})
+	table.AddHeader([]string{"GROUP", "PROJECT", "MR", "URL"})
 
 	for _, key := range sortedKeys {
-		groupPRs := groups[key]
+		groupMRs := groups[key]
 
-		// Sort PRs within group by repo name, then by PR number
-		sort.Slice(groupPRs, func(i, j int) bool {
-			if groupPRs[i].Repo != groupPRs[j].Repo {
-				return groupPRs[i].Repo < groupPRs[j].Repo
+		// Sort MRs within group by project name, then by MR IID
+		sort.Slice(groupMRs, func(i, j int) bool {
+			if groupMRs[i].Project != groupMRs[j].Project {
+				return groupMRs[i].Project < groupMRs[j].Project
 			}
-			return groupPRs[i].Number < groupPRs[j].Number
+			return groupMRs[i].IID < groupMRs[j].IID
 		})
 
-		for i, pr := range groupPRs {
+		for i, mr := range groupMRs {
 			// Group name only on first row of each group
 			if i == 0 {
 				table.AddField(key)
@@ -100,12 +100,12 @@ func (u *UI) DisplayGroups(groups map[string][]types.PR) error {
 				table.AddField("")
 			}
 
-			repoParts := strings.Split(pr.Repo, "/")
-			repoShort := repoParts[len(repoParts)-1]
-			table.AddField(repoShort)
+			projectParts := strings.Split(mr.Project, "/")
+			projectShort := projectParts[len(projectParts)-1]
+			table.AddField(projectShort)
 
-			table.AddField("#" + strconv.Itoa(pr.Number))
-			table.AddField(pr.URL)
+			table.AddField("!" + strconv.Itoa(mr.IID))
+			table.AddField(mr.URL)
 			table.EndRow()
 		}
 	}
@@ -113,19 +113,19 @@ func (u *UI) DisplayGroups(groups map[string][]types.PR) error {
 	return table.Render()
 }
 
-// PrintAction prints a standardized action message for a PR
+// PrintAction prints a standardized action message for an MR
 // Examples:
-//   - approve #123
-//   - [owner/repo] approve #123
-//   - merge #123 via dependabot
-//   - [owner/repo] skipped #123: CI checks not passing
-func (u *UI) PrintAction(action string, pr types.PR, details ...string) {
+//   - approve !123
+//   - [group/project] approve !123
+//   - merge !123 via API
+//   - [group/project] skipped !123: CI checks not passing
+func (u *UI) PrintAction(action string, mr types.MR, details ...string) {
 	prefix := ""
-	if u.multiRepo {
-		prefix = fmt.Sprintf("[%s] ", pr.Repo)
+	if u.multiProject {
+		prefix = fmt.Sprintf("[%s] ", mr.Project)
 	}
 
-	message := fmt.Sprintf("%s #%d", action, pr.Number)
+	message := fmt.Sprintf("%s !%d", action, mr.IID)
 	if len(details) > 0 {
 		message += ": " + details[0]
 	}
@@ -133,36 +133,36 @@ func (u *UI) PrintAction(action string, pr types.PR, details ...string) {
 	fmt.Printf("%s%s\n", prefix, message)
 }
 
-// PrintError prints a standardized error message for a PR action
-func (u *UI) PrintError(action string, pr types.PR, err error) {
+// PrintError prints a standardized error message for an MR action
+func (u *UI) PrintError(action string, mr types.MR, err error) {
 	prefix := ""
-	if u.multiRepo {
-		prefix = fmt.Sprintf("[%s] ", pr.Repo)
+	if u.multiProject {
+		prefix = fmt.Sprintf("[%s] ", mr.Project)
 	}
 
-	fmt.Printf("%sfailed to %s #%d: %v\n", prefix, action, pr.Number, err)
+	fmt.Printf("%sfailed to %s !%d: %v\n", prefix, action, mr.IID, err)
 }
 
-func isMultiRepo(prs []types.PR) bool {
-	if len(prs) == 0 {
+func isMultiProject(mrs []types.MR) bool {
+	if len(mrs) == 0 {
 		return false
 	}
 
-	firstRepo := prs[0].Repo
-	for _, pr := range prs {
-		if pr.Repo != firstRepo {
+	firstProject := mrs[0].Project
+	for _, mr := range mrs {
+		if mr.Project != firstProject {
 			return true
 		}
 	}
 	return false
 }
 
-func isMultiRepoGroups(groups map[string][]types.PR) bool {
-	for _, prs := range groups {
-		if len(prs) > 0 {
-			firstRepo := prs[0].Repo
-			for _, pr := range prs {
-				if pr.Repo != firstRepo {
+func isMultiProjectGroups(groups map[string][]types.MR) bool {
+	for _, mrs := range groups {
+		if len(mrs) > 0 {
+			firstProject := mrs[0].Project
+			for _, mr := range mrs {
+				if mr.Project != firstProject {
 					return true
 				}
 			}
@@ -171,8 +171,8 @@ func isMultiRepoGroups(groups map[string][]types.PR) bool {
 	return false
 }
 
-func (u *UI) displayListJSON(prs []types.PR) error {
-	data, err := json.MarshalIndent(prs, "", "  ")
+func (u *UI) displayListJSON(mrs []types.MR) error {
+	data, err := json.MarshalIndent(mrs, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON: %w", err)
 	}
@@ -180,7 +180,7 @@ func (u *UI) displayListJSON(prs []types.PR) error {
 	return nil
 }
 
-func (u *UI) displayGroupsJSON(groups map[string][]types.PR) error {
+func (u *UI) displayGroupsJSON(groups map[string][]types.MR) error {
 	data, err := json.MarshalIndent(groups, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON: %w", err)

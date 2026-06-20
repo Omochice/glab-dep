@@ -4,14 +4,14 @@ import (
 	"fmt"
 
 	"github.com/Omochice/glab-dep/internal/cache"
-	"github.com/Omochice/glab-dep/internal/github"
+	"github.com/Omochice/glab-dep/internal/gitlab"
 	"github.com/Omochice/glab-dep/internal/ui"
 	"github.com/spf13/cobra"
 )
 
 var mergeCmd = &cobra.Command{
 	Use:   "merge",
-	Short: "Bulk merge all PRs in a group",
+	Short: "Bulk merge all MRs in a group",
 	RunE:  runMerge,
 }
 
@@ -42,52 +42,52 @@ func runMerge(cmd *cobra.Command, args []string) error {
 	}
 
 	if c == nil || len(c.Groups) == 0 {
-		return fmt.Errorf("no cached groups found. Run 'gh dep list --group' first")
+		return fmt.Errorf("no cached groups found. Run 'glab dep list --group' first")
 	}
 
-	prs, ok := c.Groups[mergeGroup]
+	mrs, ok := c.Groups[mergeGroup]
 	if !ok {
 		return fmt.Errorf("group '%s' not found in cache", mergeGroup)
 	}
 
-	display := ui.New(prs, false)
+	display := ui.New(mrs, false)
 
-	for _, pr := range prs {
+	for _, mr := range mrs {
 		if mergeRequireChecks {
-			headSHA := pr.HeadSHA
+			headSHA := mr.HeadSHA
 			if headSHA == "" {
-				sha, err := github.GetPRHead(pr.Repo, pr.Number)
+				sha, err := gitlab.GetMRHead(mr.Project, mr.IID)
 				if err != nil {
-					display.PrintAction("skipped", pr, fmt.Sprintf("failed to fetch PR head: %v", err))
+					display.PrintAction("skipped", mr, fmt.Sprintf("failed to fetch MR head: %v", err))
 					continue
 				}
 				headSHA = sha
 			}
 
-			status, err := github.GetCIStatus(pr.Repo, headSHA)
+			status, err := gitlab.GetPipelineStatus(mr.Project, headSHA)
 			if err != nil {
-				display.PrintAction("skipped", pr, fmt.Sprintf("failed to check CI status: %v", err))
+				display.PrintAction("skipped", mr, fmt.Sprintf("failed to check CI status: %v", err))
 				continue
 			}
 
 			if !status.AllPassed {
-				display.PrintAction("skipped", pr, fmt.Sprintf("CI checks not passing (state: %s)", status.State))
+				display.PrintAction("skipped", mr, fmt.Sprintf("CI checks not passing (state: %s)", status.State))
 				continue
 			}
 		}
 
 		if mergeDryRun {
-			display.PrintAction("[dry-run] merge", pr)
+			display.PrintAction("[dry-run] merge", mr)
 			continue
 		}
 
-		mergeErr := github.MergeViaPR(pr.Repo, pr.Number, mergeMethod)
+		mergeErr := gitlab.MergeMR(mr.Project, mr.IID, mergeMethod)
 		if mergeErr != nil {
-			display.PrintError("merge", pr, mergeErr)
+			display.PrintError("merge", mr, mergeErr)
 			continue
 		}
 
-		display.PrintAction("merge", pr, "via API")
+		display.PrintAction("merge", mr, "via API")
 	}
 
 	return nil

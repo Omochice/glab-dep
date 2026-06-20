@@ -27,7 +27,7 @@ func runGroups(cmd *cobra.Command, args []string) error {
 	}
 
 	if c == nil || len(c.Groups) == 0 {
-		return fmt.Errorf("no cached groups found. Run 'gh dep list --group' first")
+		return fmt.Errorf("no cached groups found. Run 'glab dep list --group' first")
 	}
 
 	display := ui.NewFromGroups(c.Groups, groupsJSON)

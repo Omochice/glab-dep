@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Omochice/glab-dep/internal/github"
+	"github.com/Omochice/glab-dep/internal/gitlab"
 	"github.com/Omochice/glab-dep/internal/parser"
 	"github.com/Omochice/glab-dep/internal/types"
 	"github.com/charmbracelet/bubbles/key"
@@ -44,16 +44,16 @@ const (
 )
 
 type ExecutionResult struct {
-	PR      types.PR
+	MR      types.MR
 	Action  string
 	Success bool
 	Error   error
 }
 
 type Model struct {
-	prs             []types.PR
-	filteredPRs     []types.PR
-	selected        map[int]bool // index in filteredPRs
+	mrs             []types.MR
+	filteredMRs     []types.MR
+	selected        map[int]bool // index in filteredMRs
 	cursor          int
 	mode            ExecutionMode
 	view            ViewState
@@ -69,7 +69,7 @@ type Model struct {
 	requireChecks   bool
 	width           int
 	height          int
-	searchParams    github.SearchParams // For refetching PRs
+	searchParams    gitlab.SearchParams // For refetching MRs
 }
 
 type keyMap struct {
@@ -143,7 +143,7 @@ var keys = keyMap{
 	),
 	Refresh: key.NewBinding(
 		key.WithKeys("r"),
-		key.WithHelp("r", "refresh PR list"),
+		key.WithHelp("r", "refresh MR list"),
 	),
 	Help: key.NewBinding(
 		key.WithKeys("?"),
@@ -211,14 +211,14 @@ var (
 			Foreground(lipgloss.Color("240"))
 )
 
-func NewModel(prs []types.PR, mergeMethod string, requireChecks bool, mode ExecutionMode, searchParams github.SearchParams, customPatterns []string) *Model {
+func NewModel(mrs []types.MR, mergeMethod string, requireChecks bool, mode ExecutionMode, searchParams gitlab.SearchParams, customPatterns []string) *Model {
 	ti := textinput.New()
-	ti.Placeholder = "Search PRs..."
+	ti.Placeholder = "Search MRs..."
 	ti.CharLimit = 100
 
 	m := &Model{
-		prs:            prs,
-		filteredPRs:    prs,
+		mrs:            mrs,
+		filteredMRs:    mrs,
 		selected:       make(map[int]bool),
 		cursor:         0,
 		mode:           mode,
@@ -235,7 +235,7 @@ func NewModel(prs []types.PR, mergeMethod string, requireChecks bool, mode Execu
 
 	// Apply initial filtering based on requireChecks
 	if requireChecks {
-		m.filterPRs()
+		m.filterMRs()
 	}
 
 	return m
@@ -265,14 +265,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			}
 			if msg.String() == "enter" || msg.String() == "esc" {
-				// Refetch PRs from GitHub to update the list
+				// Refetch MRs from GitLab to update the list
 				m.clearSearch()
 				m.view = ViewList
 				m.executionResult = nil
 				m.selected = make(map[int]bool)
 				m.cursor = 0
 				m.refetching = true
-				return m, m.refetchPRs()
+				return m, m.refetchMRs()
 			}
 			return m, nil
 		}
@@ -290,14 +290,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, keys.ConfirmSearch):
 				m.searching = false
 				m.searchQuery = m.searchInput.Value()
-				m.filterPRs()
+				m.filterMRs()
 				m.cursor = 0
 				return m, nil
 			case key.Matches(msg, keys.CancelSearch):
 				m.searching = false
 				m.searchInput.SetValue("")
 				m.searchQuery = ""
-				m.filterPRs()
+				m.filterMRs()
 				return m, nil
 			default:
 				var cmd tea.Cmd
@@ -320,7 +320,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case key.Matches(msg, keys.Down):
-			if m.cursor < len(m.filteredPRs)-1 {
+			if m.cursor < len(m.filteredMRs)-1 {
 				m.cursor++
 			}
 
@@ -328,7 +328,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.selected[m.cursor] = !m.selected[m.cursor]
 
 		case key.Matches(msg, keys.SelectAll):
-			for i := range m.filteredPRs {
+			for i := range m.filteredMRs {
 				m.selected[i] = true
 			}
 
@@ -350,7 +350,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case key.Matches(msg, keys.ToggleChecks):
 			m.requireChecks = !m.requireChecks
-			m.filterPRs()
+			m.filterMRs()
 			m.cursor = 0
 
 		case key.Matches(msg, keys.Search):
@@ -359,9 +359,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, textinput.Blink
 
 		case key.Matches(msg, keys.GroupFilter):
-			if len(m.filteredPRs) > 0 && m.cursor < len(m.filteredPRs) {
-				currentPR := m.filteredPRs[m.cursor]
-				update := parser.ParseTitle(currentPR.Title, m.customPatterns)
+			if len(m.filteredMRs) > 0 && m.cursor < len(m.filteredMRs) {
+				currentMR := m.filteredMRs[m.cursor]
+				update := parser.ParseTitle(currentMR.Title, m.customPatterns)
 				groupKey := update.GroupKey()
 
 				// Toggle: if already filtering by this group, clear it
@@ -370,21 +370,21 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					m.groupFilter = groupKey
 				}
-				m.filterPRs()
+				m.filterMRs()
 				m.cursor = 0
 			}
 
 		case key.Matches(msg, keys.OpenBrowser):
-			if len(m.filteredPRs) > 0 && m.cursor < len(m.filteredPRs) {
-				return m, m.openPRInBrowser(m.filteredPRs[m.cursor])
+			if len(m.filteredMRs) > 0 && m.cursor < len(m.filteredMRs) {
+				return m, m.openMRInBrowser(m.filteredMRs[m.cursor])
 			}
 
 		case key.Matches(msg, keys.Refresh):
-			// Clear selections and refetch the PR list
+			// Clear selections and refetch the MR list
 			m.selected = make(map[int]bool)
 			m.cursor = 0
 			m.refetching = true
-			return m, m.refetchPRs()
+			return m, m.refetchMRs()
 
 		case key.Matches(msg, keys.Execute):
 			if m.hasSelection() {
@@ -404,10 +404,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case refetchCompleteMsg:
-		// Update the PR list with the refetched data
+		// Update the MR list with the refetched data
 		m.refetching = false
-		m.prs = msg.prs
-		m.filterPRs()
+		m.mrs = msg.mrs
+		m.filterMRs()
 		return m, nil
 
 	case refetchErrorMsg:
@@ -436,12 +436,12 @@ func (m *Model) renderList() string {
 	var s strings.Builder
 
 	// Title
-	s.WriteString(titleStyle.Render("gh-dep Interactive Mode"))
+	s.WriteString(titleStyle.Render("glab-dep Interactive Mode"))
 	s.WriteString("\n\n")
 
 	// Show loading indicator if refetching
 	if m.refetching {
-		s.WriteString(headerStyle.Render("Refreshing PR list from GitHub..."))
+		s.WriteString(headerStyle.Render("Refreshing MR list from GitLab..."))
 		s.WriteString("\n\n")
 		s.WriteString(helpStyle.Render("Please wait..."))
 		return s.String()
@@ -480,18 +480,18 @@ func (m *Model) renderList() string {
 		s.WriteString("\n\n")
 	}
 
-	// PR list
-	s.WriteString(headerStyle.Render(fmt.Sprintf("PRs (%d selected / %d total):", m.countSelected(), len(m.filteredPRs))))
+	// MR list
+	s.WriteString(headerStyle.Render(fmt.Sprintf("MRs (%d selected / %d total):", m.countSelected(), len(m.filteredMRs))))
 	s.WriteString("\n\n")
 
 	visibleStart, visibleEnd := m.getVisibleRange()
 
 	for i := visibleStart; i < visibleEnd; i++ {
-		if i >= len(m.filteredPRs) {
+		if i >= len(m.filteredMRs) {
 			break
 		}
 
-		pr := m.filteredPRs[i]
+		mr := m.filteredMRs[i]
 		cursor := " "
 		if i == m.cursor {
 			cursor = cursorStyle.Render("❯")
@@ -502,15 +502,15 @@ func (m *Model) renderList() string {
 			checkbox = selectedStyle.Render("[✓]")
 		}
 
-		ciStatus := formatCIStatus(pr.CIStatus)
+		ciStatus := formatCIStatus(mr.CIStatus)
 
-		line := fmt.Sprintf("%s %s %s %s #%d - %s",
+		line := fmt.Sprintf("%s %s %s %s !%d - %s",
 			cursor,
 			checkbox,
 			ciStatus,
-			pr.Repo,
-			pr.Number,
-			pr.Title,
+			mr.Project,
+			mr.IID,
+			mr.Title,
 		)
 
 		if i == m.cursor {
@@ -542,11 +542,11 @@ func (m *Model) renderExecuting() string {
 			status = errorStyle.Render("✗")
 		}
 
-		msg := fmt.Sprintf("%s %s %s #%d",
+		msg := fmt.Sprintf("%s %s %s !%d",
 			status,
 			result.Action,
-			result.PR.Repo,
-			result.PR.Number,
+			result.MR.Project,
+			result.MR.IID,
 		)
 
 		if !result.Success {
@@ -583,11 +583,11 @@ func (m *Model) renderComplete() string {
 			successCount++
 		}
 
-		msg := fmt.Sprintf("%s %s %s #%d",
+		msg := fmt.Sprintf("%s %s %s !%d",
 			status,
 			result.Action,
-			result.PR.Repo,
-			result.PR.Number,
+			result.MR.Project,
+			result.MR.IID,
 		)
 
 		if !result.Success {
@@ -619,16 +619,16 @@ func (m *Model) renderHelp() string {
 		{"↑/k", "Move cursor up"},
 		{"↓/j", "Move cursor down"},
 		{"space/enter", "Toggle selection of current item"},
-		{"a", "Select all visible PRs"},
-		{"d", "Deselect all PRs"},
+		{"a", "Select all visible MRs"},
+		{"d", "Deselect all MRs"},
 		{"m", "Toggle action mode (Approve → Merge → Approve & Merge)"},
 		{"M", "Toggle merge method (squash → merge → rebase)"},
 		{"c", "Toggle CI checks requirement"},
 		{"/", "Enter search mode"},
 		{"g", "Filter by same package@version (toggle)"},
 		{"esc", "Cancel search / clear filters"},
-		{"o", "Open current PR in browser"},
-		{"r", "Refresh PR list from GitHub"},
+		{"o", "Open current MR in browser"},
+		{"r", "Refresh MR list from GitLab"},
 		{"x", "Execute selected actions"},
 		{"?", "Show/hide this help screen"},
 		{"q", "Quit the application"},
@@ -679,14 +679,14 @@ func (m *Model) countSelected() int {
 	return count
 }
 
-func (m *Model) filterPRs() {
+func (m *Model) filterMRs() {
 	query := strings.ToLower(m.searchQuery)
-	var filtered []types.PR
+	var filtered []types.MR
 
-	for _, pr := range m.prs {
+	for _, mr := range m.mrs {
 		// Filter by group (package@version) if set
 		if m.groupFilter != "" {
-			update := parser.ParseTitle(pr.Title, m.customPatterns)
+			update := parser.ParseTitle(mr.Title, m.customPatterns)
 			if update.GroupKey() != m.groupFilter {
 				continue
 			}
@@ -694,23 +694,23 @@ func (m *Model) filterPRs() {
 
 		// Filter by search query if present
 		if m.searchQuery != "" {
-			matchesSearch := strings.Contains(strings.ToLower(pr.Title), query) ||
-				strings.Contains(strings.ToLower(pr.Repo), query) ||
-				strings.Contains(fmt.Sprintf("%d", pr.Number), query)
+			matchesSearch := strings.Contains(strings.ToLower(mr.Title), query) ||
+				strings.Contains(strings.ToLower(mr.Project), query) ||
+				strings.Contains(fmt.Sprintf("%d", mr.IID), query)
 			if !matchesSearch {
 				continue
 			}
 		}
 
 		// Filter by CI status if requireChecks is enabled
-		if m.requireChecks && pr.CIStatus != "success" {
+		if m.requireChecks && mr.CIStatus != "success" {
 			continue
 		}
 
-		filtered = append(filtered, pr)
+		filtered = append(filtered, mr)
 	}
 
-	m.filteredPRs = filtered
+	m.filteredMRs = filtered
 
 	// Clear selections that are no longer visible
 	newSelected := make(map[int]bool)
@@ -727,7 +727,7 @@ func (m *Model) clearSearch() {
 
 func (m *Model) getVisibleRange() (int, int) {
 	if m.height == 0 {
-		return 0, len(m.filteredPRs)
+		return 0, len(m.filteredMRs)
 	}
 
 	// Reserve space for header, footer, etc
@@ -736,29 +736,29 @@ func (m *Model) getVisibleRange() (int, int) {
 	start := max(m.cursor-maxVisible/2, 0)
 
 	end := start + maxVisible
-	if end > len(m.filteredPRs) {
-		end = len(m.filteredPRs)
+	if end > len(m.filteredMRs) {
+		end = len(m.filteredMRs)
 		start = max(end-maxVisible, 0)
 	}
 
 	return start, end
 }
 
-// refetchPRs creates a command to refetch the PR list from GitHub
-func (m *Model) refetchPRs() tea.Cmd {
+// refetchMRs creates a command to refetch the MR list from GitLab
+func (m *Model) refetchMRs() tea.Cmd {
 	return func() tea.Msg {
-		prs, err := github.SearchPRs(m.searchParams)
+		mrs, err := gitlab.SearchMRs(m.searchParams)
 		if err != nil {
 			return refetchErrorMsg{err: err}
 		}
-		return refetchCompleteMsg{prs: prs}
+		return refetchCompleteMsg{mrs: mrs}
 	}
 }
 
 type executionCompleteMsg struct{}
 
 type refetchCompleteMsg struct {
-	prs []types.PR
+	mrs []types.MR
 }
 
 type refetchErrorMsg struct {

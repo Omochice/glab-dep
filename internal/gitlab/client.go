@@ -1,4 +1,4 @@
-package github
+package gitlab
 
 import (
 	"bytes"
@@ -28,27 +28,27 @@ type SearchParams struct {
 	Archived        bool
 }
 
-// SearchPRs searches for PRs based on the given parameters.
+// SearchMRs searches for MRs based on the given parameters.
 // When multiple authors are specified, runs one search per author and merges results.
-func SearchPRs(params SearchParams) ([]types.PR, error) {
+func SearchMRs(params SearchParams) ([]types.MR, error) {
 	authors := params.Authors
 	if len(authors) == 0 {
 		authors = []string{""}
 	}
 
-	var allPRs []types.PR
+	var allMRs []types.MR
 	seen := make(map[string]bool)
 
 	for _, author := range authors {
-		prs, err := searchPRsForAuthor(params, author)
+		mrs, err := searchMRsForAuthor(params, author)
 		if err != nil {
 			return nil, err
 		}
-		for _, pr := range prs {
-			key := fmt.Sprintf("%s#%d", pr.Repo, pr.Number)
+		for _, mr := range mrs {
+			key := fmt.Sprintf("%s#%d", mr.Project, mr.IID)
 			if !seen[key] {
 				seen[key] = true
-				allPRs = append(allPRs, pr)
+				allMRs = append(allMRs, mr)
 			}
 		}
 	}
@@ -58,29 +58,29 @@ func SearchPRs(params SearchParams) ([]types.PR, error) {
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, maxWorkers)
 
-	for i := range allPRs {
+	for i := range allMRs {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
 			semaphore <- struct{}{}        // Acquire
 			defer func() { <-semaphore }() // Release
 
-			headSHA, err := GetPRHead(allPRs[idx].Repo, allPRs[idx].Number)
+			headSHA, err := GetMRHead(allMRs[idx].Project, allMRs[idx].IID)
 			if err == nil {
-				allPRs[idx].HeadSHA = headSHA
-				ciStatus, err := GetCIStatus(allPRs[idx].Repo, headSHA)
+				allMRs[idx].HeadSHA = headSHA
+				ciStatus, err := GetPipelineStatus(allMRs[idx].Project, headSHA)
 				if err == nil && ciStatus != nil {
-					allPRs[idx].CIStatus = ciStatus.State
+					allMRs[idx].CIStatus = ciStatus.State
 				}
 			}
 		}(i)
 	}
 
 	wg.Wait()
-	return allPRs, nil
+	return allMRs, nil
 }
 
-func searchPRsForAuthor(params SearchParams, author string) ([]types.PR, error) {
+func searchMRsForAuthor(params SearchParams, author string) ([]types.MR, error) {
 	args := []string{"search", "prs", "is:open"}
 
 	if params.Owner != "" {
@@ -107,7 +107,7 @@ func searchPRsForAuthor(params SearchParams, author string) ([]types.PR, error) 
 		args = append(args, "--limit", fmt.Sprintf("%d", params.Limit))
 	}
 
-	var rawPRs []struct {
+	var rawMRs []struct {
 		Number int    `json:"number"`
 		Title  string `json:"title"`
 		Author struct {
@@ -121,42 +121,42 @@ func searchPRsForAuthor(params SearchParams, author string) ([]types.PR, error) 
 
 	stdOut, stdErr, err := gh.Exec(args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to search PRs: %w\n%s", err, stdErr.String())
+		return nil, fmt.Errorf("failed to search MRs: %w\n%s", err, stdErr.String())
 	}
 
-	if err := parseJSON(stdOut.String(), &rawPRs); err != nil {
+	if err := parseJSON(stdOut.String(), &rawMRs); err != nil {
 		return nil, fmt.Errorf("failed to parse search results: %w", err)
 	}
 
-	prs := make([]types.PR, len(rawPRs))
-	for i, raw := range rawPRs {
-		prs[i] = types.PR{
-			Number: raw.Number,
-			Title:  raw.Title,
-			Author: raw.Author.Login,
-			Repo:   raw.Repository.NameWithOwner,
-			URL:    raw.URL,
+	mrs := make([]types.MR, len(rawMRs))
+	for i, raw := range rawMRs {
+		mrs[i] = types.MR{
+			IID:     raw.Number,
+			Title:   raw.Title,
+			Author:  raw.Author.Login,
+			Project: raw.Repository.NameWithOwner,
+			URL:     raw.URL,
 		}
 	}
 
-	return prs, nil
+	return mrs, nil
 }
 
-// GroupPRs groups PRs by package@version
-func GroupPRs(prs []types.PR, customPatterns []string) map[string][]types.PR {
-	groups := make(map[string][]types.PR)
+// GroupMRs groups MRs by package@version
+func GroupMRs(mrs []types.MR, customPatterns []string) map[string][]types.MR {
+	groups := make(map[string][]types.MR)
 
-	for _, pr := range prs {
-		update := parser.ParseTitle(pr.Title, customPatterns)
+	for _, mr := range mrs {
+		update := parser.ParseTitle(mr.Title, customPatterns)
 		key := update.GroupKey()
-		groups[key] = append(groups[key], pr)
+		groups[key] = append(groups[key], mr)
 	}
 
 	return groups
 }
 
-// ApprovePR approves a pull request
-func ApprovePR(repo string, number int) error {
+// ApproveMR approves a merge request
+func ApproveMR(repo string, number int) error {
 	client, err := GetClient()
 	if err != nil {
 		return err
@@ -173,14 +173,14 @@ func ApprovePR(repo string, number int) error {
 
 	path := fmt.Sprintf("repos/%s/pulls/%d/reviews", repo, number)
 	if err := client.Post(path, bytes.NewReader(bodyBytes), nil); err != nil {
-		return fmt.Errorf("failed to approve PR #%d: %w", number, err)
+		return fmt.Errorf("failed to approve MR #%d: %w", number, err)
 	}
 
 	return nil
 }
 
-// MergeViaPR merges a PR via GitHub API
-func MergeViaPR(repo string, number int, method string) error {
+// MergeMR merges an MR via GitHub API
+func MergeMR(repo string, number int, method string) error {
 	client, err := GetClient()
 	if err != nil {
 		return err
@@ -197,7 +197,7 @@ func MergeViaPR(repo string, number int, method string) error {
 
 	path := fmt.Sprintf("repos/%s/pulls/%d/merge", repo, number)
 	if err := client.Put(path, bytes.NewReader(bodyBytes), nil); err != nil {
-		return fmt.Errorf("failed to merge PR #%d: %w", number, err)
+		return fmt.Errorf("failed to merge MR #%d: %w", number, err)
 	}
 
 	return nil
@@ -227,8 +227,8 @@ type checkSuite struct {
 	Conclusion *string `json:"conclusion"`
 }
 
-// GetPRHead fetches the HEAD SHA for a PR (useful when SearchPRs doesn't return it)
-func GetPRHead(repo string, number int) (string, error) {
+// GetMRHead fetches the HEAD SHA for an MR (useful when SearchMRs doesn't return it)
+func GetMRHead(repo string, number int) (string, error) {
 	client, err := GetClient()
 	if err != nil {
 		return "", err
@@ -242,14 +242,14 @@ func GetPRHead(repo string, number int) (string, error) {
 
 	path := fmt.Sprintf("repos/%s/pulls/%d", repo, number)
 	if err := client.Get(path, &pr); err != nil {
-		return "", fmt.Errorf("failed to get PR #%d: %w", number, err)
+		return "", fmt.Errorf("failed to get MR #%d: %w", number, err)
 	}
 
 	return pr.Head.SHA, nil
 }
 
-// GetCIStatus checks the CI status for a PR
-func GetCIStatus(repo string, sha string) (*CheckStatus, error) {
+// GetPipelineStatus checks the CI status for an MR
+func GetPipelineStatus(repo string, sha string) (*CheckStatus, error) {
 	client, err := GetClient()
 	if err != nil {
 		return nil, err

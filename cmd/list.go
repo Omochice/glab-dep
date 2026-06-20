@@ -5,7 +5,7 @@ import (
 
 	"github.com/Omochice/glab-dep/internal/cache"
 	"github.com/Omochice/glab-dep/internal/config"
-	"github.com/Omochice/glab-dep/internal/github"
+	"github.com/Omochice/glab-dep/internal/gitlab"
 	"github.com/Omochice/glab-dep/internal/types"
 	"github.com/Omochice/glab-dep/internal/ui"
 	"github.com/spf13/cobra"
@@ -13,7 +13,7 @@ import (
 
 var listCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List dependency PRs, optionally grouped by package@version",
+	Short: "List dependency MRs, optionally grouped by package@version",
 	RunE:  runList,
 }
 
@@ -60,7 +60,7 @@ func runList(cmd *cobra.Command, args []string) error {
 
 	owner, repos := resolveScope(cmd, listRepo, listOwner, cfg)
 
-	searchParams := github.SearchParams{
+	searchParams := gitlab.SearchParams{
 		Owner:           owner,
 		Repos:           repos,
 		Label:           label,
@@ -70,18 +70,18 @@ func runList(cmd *cobra.Command, args []string) error {
 		Archived:        listArchived,
 	}
 
-	allPRs, err := github.SearchPRs(searchParams)
+	allMRs, err := gitlab.SearchMRs(searchParams)
 	if err != nil {
-		return fmt.Errorf("failed to search PRs: %w", err)
+		return fmt.Errorf("failed to search MRs: %w", err)
 	}
 
-	if len(allPRs) == 0 {
-		fmt.Println("No dependency PRs found")
+	if len(allMRs) == 0 {
+		fmt.Println("No dependency MRs found")
 		return nil
 	}
 
 	if listGroup {
-		groups := github.GroupPRs(allPRs, cfg.GetPatterns())
+		groups := gitlab.GroupMRs(allMRs, cfg.GetPatterns())
 
 		// Cache the groups
 		c := &types.Cache{
@@ -96,6 +96,6 @@ func runList(cmd *cobra.Command, args []string) error {
 		return display.DisplayGroups(groups)
 	}
 
-	display := ui.New(allPRs, listJSON)
-	return display.DisplayList(allPRs)
+	display := ui.New(allMRs, listJSON)
+	return display.DisplayList(allMRs)
 }

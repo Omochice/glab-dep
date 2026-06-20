@@ -1,23 +1,23 @@
 package types
 
-// PR represents a pull request
-type PR struct {
-	Number   int    `json:"number"`
+// MR represents a merge request
+type MR struct {
+	IID      int    `json:"iid"`
 	Title    string `json:"title"`
 	Author   string `json:"author"`
-	Repo     string `json:"repo"` // OWNER/REPO format
+	Project  string `json:"project"` // GROUP/PROJECT full path
 	URL      string `json:"url"`
-	HeadSHA  string `json:"-"`         // For CI status checks
-	CIStatus string `json:"ci_status"` // CI status: success, pending, failure, or empty
+	HeadSHA  string `json:"-"`         // For pipeline status checks
+	CIStatus string `json:"ci_status"` // Pipeline status: success, pending, failure, or empty
 }
 
-// Group represents a collection of PRs for the same package@version
+// Group represents a collection of MRs for the same package@version
 type Group struct {
 	Key string // package@version
-	PRs []PR
+	MRs []MR
 }
 
 // Cache represents the cached groups from list --group
 type Cache struct {
-	Groups map[string][]PR `json:"groups"` // key: package@version, value: list of PRs
+	Groups map[string][]MR `json:"groups"` // key: package@version, value: list of MRs
 }
