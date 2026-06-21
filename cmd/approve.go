@@ -3,15 +3,15 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/jackchuka/gh-dep/internal/cache"
-	"github.com/jackchuka/gh-dep/internal/github"
-	"github.com/jackchuka/gh-dep/internal/ui"
+	"github.com/Omochice/glab-dep/internal/cache"
+	"github.com/Omochice/glab-dep/internal/gitlab"
+	"github.com/Omochice/glab-dep/internal/ui"
 	"github.com/spf13/cobra"
 )
 
 var approveCmd = &cobra.Command{
 	Use:   "approve",
-	Short: "Bulk approve all PRs in a group",
+	Short: "Bulk approve all MRs in a group",
 	RunE:  runApprove,
 }
 
@@ -34,28 +34,28 @@ func runApprove(cmd *cobra.Command, args []string) error {
 	}
 
 	if c == nil || len(c.Groups) == 0 {
-		return fmt.Errorf("no cached groups found. Run 'gh dep list --group' first")
+		return fmt.Errorf("no cached groups found. Run 'glab dep list --group' first")
 	}
 
-	prs, ok := c.Groups[approveGroup]
+	mrs, ok := c.Groups[approveGroup]
 	if !ok {
 		return fmt.Errorf("group '%s' not found in cache", approveGroup)
 	}
 
-	display := ui.New(prs, false)
+	display := ui.New(mrs, false)
 
-	for _, pr := range prs {
+	for _, mr := range mrs {
 		if approveDryRun {
-			display.PrintAction("approve", pr)
+			display.PrintAction("approve", mr)
 			continue
 		}
 
-		if err := github.ApprovePR(pr.Repo, pr.Number); err != nil {
-			display.PrintError("approve", pr, err)
+		if err := gitlab.ApproveMR(mr.Project, mr.IID); err != nil {
+			display.PrintError("approve", mr, err)
 			continue
 		}
 
-		display.PrintAction("approve", pr)
+		display.PrintAction("approve", mr)
 	}
 
 	return nil

@@ -1,23 +1,24 @@
 package types
 
-// PR represents a pull request
-type PR struct {
-	Number   int    `json:"number"`
-	Title    string `json:"title"`
-	Author   string `json:"author"`
-	Repo     string `json:"repo"` // OWNER/REPO format
-	URL      string `json:"url"`
-	HeadSHA  string `json:"-"`         // For CI status checks
-	CIStatus string `json:"ci_status"` // CI status: success, pending, failure, or empty
+// MR represents a merge request
+type MR struct {
+	IID       int    `json:"iid"`
+	ProjectID int    `json:"project_id"` // numeric GitLab project ID, used for API calls
+	Title     string `json:"title"`
+	Author    string `json:"author"`
+	Project   string `json:"project"` // GROUP/PROJECT full path
+	URL       string `json:"url"`
+	HeadSHA   string `json:"-"`         // head commit SHA
+	CIStatus  string `json:"ci_status"` // Pipeline status: success, pending, failure, or empty
 }
 
-// Group represents a collection of PRs for the same package@version
+// Group represents a collection of MRs for the same package@version
 type Group struct {
 	Key string // package@version
-	PRs []PR
+	MRs []MR
 }
 
 // Cache represents the cached groups from list --group
 type Cache struct {
-	Groups map[string][]PR `json:"groups"` // key: package@version, value: list of PRs
+	Groups map[string][]MR `json:"groups"` // key: package@version, value: list of MRs
 }

@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/jackchuka/gh-dep/cmd"
+	"github.com/Omochice/glab-dep/cmd"
 )
 
 func main() {

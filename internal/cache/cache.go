@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jackchuka/gh-dep/internal/types"
+	"github.com/Omochice/glab-dep/internal/types"
 )
 
 // GetCachePath returns the path to the cache file
@@ -19,7 +19,7 @@ func GetCachePath() (string, error) {
 		cacheDir = filepath.Join(home, ".cache")
 	}
 
-	depCache := filepath.Join(cacheDir, "gh-dep")
+	depCache := filepath.Join(cacheDir, "glab-dep")
 	if err := os.MkdirAll(depCache, 0755); err != nil {
 		return "", err
 	}

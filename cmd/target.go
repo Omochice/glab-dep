@@ -1,15 +1,20 @@
 package cmd
 
 import (
-	"fmt"
 	"strings"
 
-	"github.com/jackchuka/gh-dep/internal/config"
+	"github.com/Omochice/glab-dep/internal/config"
 	"github.com/spf13/cobra"
 )
 
-// resolveScope determines owner and repo targets, falling back to @me when nothing is provided.
-func resolveScope(cmd *cobra.Command, repoValue, ownerValue string, cfg *config.Config) (string, []string) {
+// defaultAuthor is the GitLab username searched for when neither --author nor
+// dep.author is set. Renovate is the de facto dependency bot on GitLab.
+const defaultAuthor = "renovate-bot"
+
+// resolveScope determines the group and project targets.
+// Explicit --repo (or dep.repo) wins; otherwise the group filter is used.
+// When both are empty, callers search across all accessible projects.
+func resolveScope(cmd *cobra.Command, repoValue, groupValue string, cfg *config.Config) (string, []string) {
 	var repos []string
 
 	if cmd.Flags().Changed("repo") {
@@ -18,31 +23,19 @@ func resolveScope(cmd *cobra.Command, repoValue, ownerValue string, cfg *config.
 		repos = append(repos, cfg.GetRepos()...)
 	}
 
-	owner := ownerValue
-	if owner == "" && len(repos) == 0 {
-		owner = "@me"
-	}
-
-	return owner, repos
+	return groupValue, repos
 }
 
-// resolveAuthors picks the effective author filters based on flags.
-// --author wins; otherwise --bot is mapped to known logins.
-func resolveAuthors(cmd *cobra.Command, authorValue, botValue string) ([]string, error) {
+// resolveAuthors picks the effective author filter.
+// --author wins, then dep.author, then the default Renovate bot username.
+func resolveAuthors(cmd *cobra.Command, authorValue string, cfg *config.Config) []string {
 	if cmd.Flags().Changed("author") {
-		return []string{authorValue}, nil
+		return []string{authorValue}
 	}
-
-	switch normalized := strings.TrimSpace(strings.ToLower(strings.TrimPrefix(botValue, "@"))); normalized {
-	case "all", "both", "":
-		return []string{"dependabot[bot]", "renovate[bot]"}, nil
-	case "dependabot", "dependabot[bot]":
-		return []string{"dependabot[bot]"}, nil
-	case "renovate", "renovate[bot]":
-		return []string{"renovate[bot]"}, nil
-	default:
-		return nil, fmt.Errorf("invalid value for --bot: %q (expected all, dependabot, or renovate)", botValue)
+	if cfg != nil && cfg.GetAuthor() != "" {
+		return []string{cfg.GetAuthor()}
 	}
+	return []string{defaultAuthor}
 }
 
 // cleanRepos splits comma-separated repos, trimming blanks.

@@ -3,15 +3,15 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/jackchuka/gh-dep/internal/cache"
-	"github.com/jackchuka/gh-dep/internal/github"
-	"github.com/jackchuka/gh-dep/internal/ui"
+	"github.com/Omochice/glab-dep/internal/cache"
+	"github.com/Omochice/glab-dep/internal/gitlab"
+	"github.com/Omochice/glab-dep/internal/ui"
 	"github.com/spf13/cobra"
 )
 
 var mergeCmd = &cobra.Command{
 	Use:   "merge",
-	Short: "Bulk merge all PRs in a group",
+	Short: "Bulk merge all MRs in a group",
 	RunE:  runMerge,
 }
 
@@ -28,7 +28,7 @@ func init() {
 
 	mergeCmd.Flags().BoolVar(&mergeDryRun, "dry-run", false, "Print actions without executing")
 	mergeCmd.Flags().StringVar(&mergeMethod, "method", "squash", "Merge method: merge, squash, or rebase")
-	mergeCmd.Flags().BoolVar(&mergeRequireChecks, "require-checks", true, "Require CI checks to pass")
+	mergeCmd.Flags().BoolVar(&mergeRequireChecks, "require-checks", true, "Merge only when the pipeline succeeds (GitLab auto-merge)")
 }
 
 func runMerge(cmd *cobra.Command, args []string) error {
@@ -42,52 +42,35 @@ func runMerge(cmd *cobra.Command, args []string) error {
 	}
 
 	if c == nil || len(c.Groups) == 0 {
-		return fmt.Errorf("no cached groups found. Run 'gh dep list --group' first")
+		return fmt.Errorf("no cached groups found. Run 'glab dep list --group' first")
 	}
 
-	prs, ok := c.Groups[mergeGroup]
+	mrs, ok := c.Groups[mergeGroup]
 	if !ok {
 		return fmt.Errorf("group '%s' not found in cache", mergeGroup)
 	}
 
-	display := ui.New(prs, false)
+	display := ui.New(mrs, false)
 
-	for _, pr := range prs {
-		if mergeRequireChecks {
-			headSHA := pr.HeadSHA
-			if headSHA == "" {
-				sha, err := github.GetPRHead(pr.Repo, pr.Number)
-				if err != nil {
-					display.PrintAction("skipped", pr, fmt.Sprintf("failed to fetch PR head: %v", err))
-					continue
-				}
-				headSHA = sha
-			}
-
-			status, err := github.GetCIStatus(pr.Repo, headSHA)
-			if err != nil {
-				display.PrintAction("skipped", pr, fmt.Sprintf("failed to check CI status: %v", err))
-				continue
-			}
-
-			if !status.AllPassed {
-				display.PrintAction("skipped", pr, fmt.Sprintf("CI checks not passing (state: %s)", status.State))
-				continue
-			}
-		}
-
+	for _, mr := range mrs {
 		if mergeDryRun {
-			display.PrintAction("[dry-run] merge", pr)
+			display.PrintAction("[dry-run] merge", mr)
 			continue
 		}
 
-		mergeErr := github.MergeViaPR(pr.Repo, pr.Number, mergeMethod)
+		// With --require-checks, GitLab merges the MR once its pipeline
+		// succeeds (native auto-merge) rather than us gating it here.
+		mergeErr := gitlab.MergeMR(mr.Project, mr.IID, mergeMethod, mergeRequireChecks)
 		if mergeErr != nil {
-			display.PrintError("merge", pr, mergeErr)
+			display.PrintError("merge", mr, mergeErr)
 			continue
 		}
 
-		display.PrintAction("merge", pr, "via API")
+		if mergeRequireChecks {
+			display.PrintAction("merge", mr, "auto-merge when pipeline succeeds")
+		} else {
+			display.PrintAction("merge", mr)
+		}
 	}
 
 	return nil

@@ -3,32 +3,30 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/Omochice/glab-dep/internal/config"
+	"github.com/Omochice/glab-dep/internal/gitlab"
+	"github.com/Omochice/glab-dep/internal/tui"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/jackchuka/gh-dep/internal/config"
-	"github.com/jackchuka/gh-dep/internal/github"
-	"github.com/jackchuka/gh-dep/internal/tui"
 	"github.com/spf13/cobra"
 )
 
 var (
-	rootLabel           string
-	rootAuthor          string
-	rootLimit           int
-	rootRepo            string
-	rootOwner           string
-	rootMergeMethod     string
-	rootRequireCheck    bool
-	rootMode            string
-	rootReviewRequested string
-	rootArchived        bool
-	rootBot             string
+	rootLabel        string
+	rootAuthor       string
+	rootLimit        int
+	rootRepo         string
+	rootGroup        string
+	rootMergeMethod  string
+	rootRequireCheck bool
+	rootMode         string
+	rootReviewer     string
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "gh-dep",
-	Short: "Streamline dependency PR review and merge workflow",
-	Long: `gh-dep is a GitHub CLI extension that helps you manage automated
-dependency update PRs by grouping, bulk approving, and bulk merging them.
+	Use:   "glab-dep",
+	Short: "Streamline dependency MR review and merge workflow",
+	Long: `glab-dep is a GitLab CLI extension that helps you manage automated
+dependency update MRs by grouping, bulk approving, and bulk merging them.
 
 When run without subcommands, launches interactive TUI mode.`,
 	SilenceUsage: true,
@@ -45,29 +43,25 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	owner, repos := resolveScope(cmd, rootRepo, rootOwner, cfg)
-	authors, err := resolveAuthors(cmd, rootAuthor, rootBot)
+	group, repos := resolveScope(cmd, rootRepo, rootGroup, cfg)
+	authors := resolveAuthors(cmd, rootAuthor, cfg)
+
+	searchParams := gitlab.SearchParams{
+		Group:    group,
+		Repos:    repos,
+		Label:    rootLabel,
+		Authors:  authors,
+		Limit:    rootLimit,
+		Reviewer: rootReviewer,
+	}
+
+	allMRs, err := gitlab.SearchMRs(searchParams)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to search MRs: %w", err)
 	}
 
-	searchParams := github.SearchParams{
-		Owner:           owner,
-		Repos:           repos,
-		Label:           rootLabel,
-		Authors:         authors,
-		Limit:           rootLimit,
-		ReviewRequested: rootReviewRequested,
-		Archived:        rootArchived,
-	}
-
-	allPRs, err := github.SearchPRs(searchParams)
-	if err != nil {
-		return fmt.Errorf("failed to search PRs: %w", err)
-	}
-
-	if len(allPRs) == 0 {
-		fmt.Println("No dependency PRs found")
+	if len(allMRs) == 0 {
+		fmt.Println("No dependency MRs found")
 		return nil
 	}
 
@@ -83,7 +77,7 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	}
 
 	// Launch TUI
-	model := tui.NewModel(allPRs, rootMergeMethod, rootRequireCheck, mode, searchParams, cfg.GetPatterns())
+	model := tui.NewModel(allMRs, rootMergeMethod, rootRequireCheck, mode, searchParams, cfg.GetPatterns())
 
 	p := tea.NewProgram(model, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
@@ -94,17 +88,15 @@ func runRoot(cmd *cobra.Command, args []string) error {
 }
 
 func init() {
-	rootCmd.Flags().IntVar(&rootLimit, "limit", 200, "Max PRs to fetch per repo")
-	rootCmd.Flags().StringVar(&rootLabel, "label", "", "PR label to filter")
-	rootCmd.Flags().StringVar(&rootAuthor, "author", "", "PR author to filter")
-	rootCmd.Flags().StringVar(&rootBot, "bot", "all", "Dependency bot to target: all, dependabot, or renovate (overridden by --author)")
-	rootCmd.Flags().StringVarP(&rootRepo, "repo", "R", "", "Target repo(s), comma-separated")
-	rootCmd.Flags().StringVar(&rootOwner, "owner", "", "Target owner (user or org)")
+	rootCmd.Flags().IntVar(&rootLimit, "limit", 200, "Max MRs to fetch per project")
+	rootCmd.Flags().StringVar(&rootLabel, "label", "", "MR label to filter")
+	rootCmd.Flags().StringVar(&rootAuthor, "author", "", "MR author username (defaults to the Renovate bot)")
+	rootCmd.Flags().StringVarP(&rootRepo, "repo", "R", "", "Target project(s) (GROUP/PROJECT), comma-separated")
+	rootCmd.Flags().StringVar(&rootGroup, "group-path", "", "Target GitLab group/subgroup full path")
 	rootCmd.Flags().StringVar(&rootMergeMethod, "merge-method", "squash", "Merge method: merge, squash, or rebase")
-	rootCmd.Flags().BoolVar(&rootRequireCheck, "require-checks", false, "Require CI checks to pass")
+	rootCmd.Flags().BoolVar(&rootRequireCheck, "require-checks", false, "Merge only when the pipeline succeeds (GitLab auto-merge)")
 	rootCmd.Flags().StringVar(&rootMode, "mode", "approve", "Execution mode: approve, merge, or approve-and-merge (both)")
-	rootCmd.Flags().StringVar(&rootReviewRequested, "review-requested", "", "Filter PRs by review requested from user or team (e.g., '@me' or 'username')")
-	rootCmd.Flags().BoolVar(&rootArchived, "archived", false, "Include PRs from archived repositories")
+	rootCmd.Flags().StringVar(&rootReviewer, "reviewer", "", "Filter MRs by reviewer username")
 
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(groupsCmd)

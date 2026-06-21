@@ -1,15 +1,16 @@
 package tui
 
 import (
+	"strconv"
+
+	"github.com/Omochice/glab-dep/internal/glab"
+	"github.com/Omochice/glab-dep/internal/types"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/cli/go-gh/v2"
-	"github.com/jackchuka/gh-dep/internal/types"
 )
 
-func (m Model) openPRInBrowser(pr types.PR) tea.Cmd {
+func (m Model) openMRInBrowser(mr types.MR) tea.Cmd {
 	return func() tea.Msg {
-		args := []string{"pr", "view", pr.URL, "--web"}
-		_, _, _ = gh.Exec(args...)
+		_, _ = glab.Run("mr", "view", strconv.Itoa(mr.IID), "-R", mr.Project, "--web")
 		return nil
 	}
 }

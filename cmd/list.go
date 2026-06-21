@@ -3,47 +3,43 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/jackchuka/gh-dep/internal/cache"
-	"github.com/jackchuka/gh-dep/internal/config"
-	"github.com/jackchuka/gh-dep/internal/github"
-	"github.com/jackchuka/gh-dep/internal/types"
-	"github.com/jackchuka/gh-dep/internal/ui"
+	"github.com/Omochice/glab-dep/internal/cache"
+	"github.com/Omochice/glab-dep/internal/config"
+	"github.com/Omochice/glab-dep/internal/gitlab"
+	"github.com/Omochice/glab-dep/internal/types"
+	"github.com/Omochice/glab-dep/internal/ui"
 	"github.com/spf13/cobra"
 )
 
 var listCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List dependency PRs, optionally grouped by package@version",
+	Short: "List dependency MRs, optionally grouped by package@version",
 	RunE:  runList,
 }
 
 var (
-	listLabel           string
-	listAuthor          string
-	listGroup           bool
-	listLimit           int
-	listRepo            string
-	listOwner           string
-	listJSON            bool
-	listReviewRequested string
-	listArchived        bool
-	listBot             string
+	listLabel    string
+	listAuthor   string
+	listGroup    bool
+	listLimit    int
+	listRepo     string
+	listGroupArg string
+	listJSON     bool
+	listReviewer string
 )
 
 func init() {
-	listCmd.Flags().BoolVar(&listGroup, "group", false, "Group PRs by package@version")
+	listCmd.Flags().BoolVar(&listGroup, "group", false, "Group MRs by package@version")
 	listCmd.Flags().BoolVar(&listJSON, "json", false, "Output as JSON")
 
-	listCmd.Flags().IntVar(&listLimit, "limit", 200, "Max PRs to fetch per repo")
+	listCmd.Flags().IntVar(&listLimit, "limit", 200, "Max MRs to fetch per project")
 
 	// additional filters
-	listCmd.Flags().StringVarP(&listRepo, "repo", "R", "", "Target repo(s), comma-separated")
-	listCmd.Flags().StringVar(&listLabel, "label", "", "PR label to filter")
-	listCmd.Flags().StringVar(&listAuthor, "author", "", "PR author to filter")
-	listCmd.Flags().StringVar(&listBot, "bot", "all", "Dependency bot to target: all, dependabot, or renovate (overridden by --author)")
-	listCmd.Flags().StringVar(&listOwner, "owner", "", "Target owner (user or org)")
-	listCmd.Flags().StringVar(&listReviewRequested, "review-requested", "", "Filter PRs by review requested from user or team (e.g., '@me' or 'username')")
-	listCmd.Flags().BoolVar(&listArchived, "archived", false, "Include PRs from archived repositories")
+	listCmd.Flags().StringVarP(&listRepo, "repo", "R", "", "Target project(s) (GROUP/PROJECT), comma-separated")
+	listCmd.Flags().StringVar(&listLabel, "label", "", "MR label to filter")
+	listCmd.Flags().StringVar(&listAuthor, "author", "", "MR author username (defaults to the Renovate bot)")
+	listCmd.Flags().StringVar(&listGroupArg, "group-path", "", "Target GitLab group/subgroup full path")
+	listCmd.Flags().StringVar(&listReviewer, "reviewer", "", "Filter MRs by reviewer username")
 }
 
 func runList(cmd *cobra.Command, args []string) error {
@@ -53,35 +49,31 @@ func runList(cmd *cobra.Command, args []string) error {
 	}
 
 	label := listLabel
-	authors, err := resolveAuthors(cmd, listAuthor, listBot)
+	authors := resolveAuthors(cmd, listAuthor, cfg)
+
+	group, repos := resolveScope(cmd, listRepo, listGroupArg, cfg)
+
+	searchParams := gitlab.SearchParams{
+		Group:    group,
+		Repos:    repos,
+		Label:    label,
+		Authors:  authors,
+		Limit:    listLimit,
+		Reviewer: listReviewer,
+	}
+
+	allMRs, err := gitlab.SearchMRs(searchParams)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to search MRs: %w", err)
 	}
 
-	owner, repos := resolveScope(cmd, listRepo, listOwner, cfg)
-
-	searchParams := github.SearchParams{
-		Owner:           owner,
-		Repos:           repos,
-		Label:           label,
-		Authors:         authors,
-		Limit:           listLimit,
-		ReviewRequested: listReviewRequested,
-		Archived:        listArchived,
-	}
-
-	allPRs, err := github.SearchPRs(searchParams)
-	if err != nil {
-		return fmt.Errorf("failed to search PRs: %w", err)
-	}
-
-	if len(allPRs) == 0 {
-		fmt.Println("No dependency PRs found")
+	if len(allMRs) == 0 {
+		fmt.Println("No dependency MRs found")
 		return nil
 	}
 
 	if listGroup {
-		groups := github.GroupPRs(allPRs, cfg.GetPatterns())
+		groups := gitlab.GroupMRs(allMRs, cfg.GetPatterns())
 
 		// Cache the groups
 		c := &types.Cache{
@@ -96,6 +88,6 @@ func runList(cmd *cobra.Command, args []string) error {
 		return display.DisplayGroups(groups)
 	}
 
-	display := ui.New(allPRs, listJSON)
-	return display.DisplayList(allPRs)
+	display := ui.New(allMRs, listJSON)
+	return display.DisplayList(allMRs)
 }
