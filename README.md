@@ -22,7 +22,7 @@ It delegates all GitLab access to the [`glab`](https://gitlab.com/gitlab-org/cli
 ### Prerequisites
 
 - [GitLab CLI](https://gitlab.com/gitlab-org/cli) (`glab`), authenticated via `glab auth login`
-- Go 1.21 or later (for building from source)
+- Go 1.26 or later (for building from source)
 
 ### Install from Source
 
