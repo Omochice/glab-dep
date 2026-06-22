@@ -25,8 +25,9 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "glab-dep",
 	Short: "Streamline dependency MR review and merge workflow",
-	Long: `glab-dep is a GitLab CLI extension that helps you manage automated
-dependency update MRs by grouping, bulk approving, and bulk merging them.
+	Long: `glab-dep helps you manage automated dependency update MRs on GitLab
+by grouping, bulk approving, and bulk merging them. It uses the glab CLI for
+all GitLab access, so it never stores a token itself.
 
 When run without subcommands, launches interactive TUI mode.`,
 	SilenceUsage: true,

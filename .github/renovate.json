@@ -1,0 +1,12 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "github>Omochice/personal-renovate-config#v1.15.0"
+  ],
+  "reviewers": [
+    "Omochice"
+  ],
+  "assignees": [
+    "Omochice"
+  ]
+}

@@ -1,8 +1,8 @@
 # glab-dep
 
-A GitLab CLI extension that streamlines the review and merge workflow for automated dependency update merge requests (MRs).
+A standalone command-line tool that streamlines the review and merge workflow for automated dependency update merge requests (MRs) on GitLab.
 
-It delegates all GitLab access to the [`glab`](https://gitlab.com/gitlab-org/cli) CLI, so it never stores a token itself — authentication is whatever `glab` is already configured with.
+It delegates all GitLab access to the [`glab`](https://gitlab.com/gitlab-org/cli) CLI, so it never stores a token itself — authentication is whatever `glab` is already configured with. `glab-dep` is a separate binary that shells out to `glab`; it is not a `glab` extension (`glab` has no extension mechanism).
 
 ## Features
 
@@ -31,14 +31,13 @@ It delegates all GitLab access to the [`glab`](https://gitlab.com/gitlab-org/cli
 git clone https://github.com/Omochice/glab-dep.git
 cd glab-dep
 
-# Build the extension binary (must be named glab-dep to be a glab extension)
+# Build the binary and put it on your PATH
 go build -o glab-dep
-
-# Install as a glab extension
-glab extension install .
+# e.g. install into $GOBIN / $GOPATH/bin
+go install .
 ```
 
-Once installed it is invoked as `glab dep`.
+Make sure `glab` is also on your `PATH`; `glab-dep` invokes it for all GitLab access. Once installed, run it as `glab-dep`.
 
 ### Build with Nix
 
@@ -61,13 +60,13 @@ The Nix build wraps the binary so `glab` is available on `PATH`, while a
 
 ```bash
 # Launch interactive TUI across all accessible projects
-glab dep
+glab-dep
 
 # Or for specific project[s]
-glab dep --repo group/app,group/api
+glab-dep --repo group/app,group/api
 
 # Or for an entire group/subgroup
-glab dep --group-path mygroup
+glab-dep --group-path mygroup
 ```
 
 **In the TUI, you can:**
@@ -87,7 +86,7 @@ glab dep --group-path mygroup
 
 ```bash
 # List and group dependency MRs in a single project
-glab dep list --repo group/app --group
+glab-dep list --repo group/app --group
 
 # Output:
 # GROUP              PROJECT   MR     URL
@@ -95,23 +94,23 @@ glab dep list --repo group/app --group
 #                   api       !129   https://gitlab.com/group/api/-/merge_requests/129
 
 # View cached groups
-glab dep groups
+glab-dep groups
 
 # Approve all MRs in a group (dry-run first)
-glab dep approve --group lodash@4.17.21 --dry-run
+glab-dep approve --group lodash@4.17.21 --dry-run
 
 # Approve for real
-glab dep approve --group lodash@4.17.21
+glab-dep approve --group lodash@4.17.21
 
 # Merge with auto-merge (--require-checks is true by default)
-glab dep merge --group lodash@4.17.21 --method squash
+glab-dep merge --group lodash@4.17.21 --method squash
 ```
 
 ## Usage
 
 ### Scope and authentication
 
-`glab dep` never holds a token. It runs `glab api` / `glab mr` under the hood, so it uses whatever host and credentials `glab` is configured with (run `glab auth login` first). For self-hosted GitLab, run inside a repository of that host or set `GITLAB_HOST`, as documented by `glab`.
+`glab-dep` never holds a token. It runs `glab api` / `glab mr` under the hood, so it uses whatever host and credentials `glab` is configured with (run `glab auth login` first). For self-hosted GitLab, run inside a repository of that host or set `GITLAB_HOST`, as documented by `glab`.
 
 The search scope is resolved as follows:
 
@@ -124,7 +123,7 @@ The search scope is resolved as follows:
 #### Main Command - Interactive TUI (Recommended)
 
 ```bash
-glab dep [flags]
+glab-dep [flags]
 ```
 
 **Flags:**
@@ -143,22 +142,22 @@ glab dep [flags]
 
 ```bash
 # Launch TUI for a single project (defaults to Renovate-authored MRs)
-glab dep --repo group/app
+glab-dep --repo group/app
 
 # Launch for an entire group with custom initial settings
-glab dep --group-path mygroup --merge-method rebase
+glab-dep --group-path mygroup --merge-method rebase
 
 # Target a custom Renovate bot account
-glab dep --group-path mygroup --author my-renovate-bot
+glab-dep --group-path mygroup --author my-renovate-bot
 
 # Filter by label
-glab dep --repo group/app --label dependencies
+glab-dep --repo group/app --label dependencies
 ```
 
 #### `list` - List dependency MRs
 
 ```bash
-glab dep list [flags]
+glab-dep list [flags]
 ```
 
 **Flags:**
@@ -175,7 +174,7 @@ glab dep list [flags]
 #### `groups` - Show cached groups
 
 ```bash
-glab dep groups [flags]
+glab-dep groups [flags]
 ```
 
 **Flags:**
@@ -187,7 +186,7 @@ Shows the groups from the last `list --group` command without querying GitLab.
 #### `approve` - Bulk approve MRs
 
 ```bash
-glab dep approve --group GROUP_KEY [flags]
+glab-dep approve --group GROUP_KEY [flags]
 ```
 
 **Flags:**
@@ -198,7 +197,7 @@ glab dep approve --group GROUP_KEY [flags]
 #### `merge` - Bulk merge MRs
 
 ```bash
-glab dep merge --group GROUP_KEY [flags]
+glab-dep merge --group GROUP_KEY [flags]
 ```
 
 **Flags:**
@@ -214,13 +213,13 @@ With `--require-checks` (the default), each MR is merged through GitLab's native
 
 ```bash
 # Merge once the pipeline succeeds (recommended)
-glab dep merge --group lodash@4.17.21 --method squash
+glab-dep merge --group lodash@4.17.21 --method squash
 
 # Merge immediately, regardless of pipeline state
-glab dep merge --group lodash@4.17.21 --require-checks=false
+glab-dep merge --group lodash@4.17.21 --require-checks=false
 
 # Dry-run merge
-glab dep merge --group lodash@4.17.21 --dry-run
+glab-dep merge --group lodash@4.17.21 --dry-run
 ```
 
 ## Configuration
@@ -241,7 +240,7 @@ glab config set dep.patterns "bump\s+([^\s]+)\s+from\s+[^\s]+\s+to\s+v?(\d+(?:\.
 glab config get dep.repo
 ```
 
-When flags are not provided, `glab dep` uses these defaults.
+When flags are not provided, `glab-dep` uses these defaults.
 
 ## Supported MR Title Patterns
 
@@ -283,13 +282,13 @@ Cache is overwritten on each `list --group` execution.
 
 ```bash
 # Flat list
-glab dep list
+glab-dep list
 # Output:
 # PROJECT                        MR     TITLE
 # group/app                     !112   Update dependency lodash to 4.17.21
 
 # Grouped (single table)
-glab dep list --group
+glab-dep list --group
 ```
 
 ### JSON Output
@@ -298,10 +297,10 @@ Use `--json` for machine-readable output:
 
 ```bash
 # Flat list as JSON array
-glab dep list --json
+glab-dep list --json
 
 # Grouped as JSON object
-glab dep list --group --json
+glab-dep list --group --json
 ```
 
 ## Development
