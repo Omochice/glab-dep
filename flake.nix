@@ -147,6 +147,14 @@
       {
         # keep-sorted start block=yes
         checks.git-hooks = gitHooks;
+        # --no-global: .github/renovate.json is repo config, not a global
+        # self-hosted config, which is how the validator treats path args by default.
+        checks.renovate-config =
+          pkgs.runCommandLocal "renovate-config-check" { nativeBuildInputs = [ pkgs.renovate ]; }
+            ''
+              renovate-config-validator --strict --no-global ${self}/.github/renovate.json
+              touch $out
+            '';
         devShells = pkgs.lib.pipe devPackages [
           (pkgs.lib.attrsets.mapAttrs (
             name: buildInputs:
