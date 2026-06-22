@@ -508,7 +508,7 @@ func (m *Model) renderList() string {
 			cursor,
 			checkbox,
 			ciStatus,
-			mr.Project,
+			shortenProjectPath(mr.Project),
 			mr.IID,
 			mr.Title,
 		)
