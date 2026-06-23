@@ -36,6 +36,11 @@ func TestShortenProjectPath(t *testing.T) {
 			want: ".c/repo",
 		},
 		{
+			name: "multibyte segments are shortened by rune, not byte",
+			path: "日本語/テスト/リポジトリ",
+			want: "日/テ/リポジトリ",
+		},
+		{
 			name: "empty path stays empty",
 			path: "",
 			want: "",
