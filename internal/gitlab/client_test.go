@@ -1,6 +1,41 @@
 package gitlab
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
+
+func TestIsAlreadyApproved(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{
+			name: "401 from a repeat approval",
+			err:  errors.New("glab mr approve 5 -R group/proj: exit status 1\nPOST .../approve: 401 {message: 401 Unauthorized}"),
+			want: true,
+		},
+		{
+			name: "unrelated failure",
+			err:  errors.New("glab mr approve 5 -R group/proj: exit status 1\n404 Not Found"),
+			want: false,
+		},
+		{
+			name: "no error",
+			err:  nil,
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isAlreadyApproved(tt.err); got != tt.want {
+				t.Fatalf("isAlreadyApproved(%v) = %v, want %v", tt.err, got, tt.want)
+			}
+		})
+	}
+}
 
 func TestNormalizePipelineStatus(t *testing.T) {
 	tests := []struct {
