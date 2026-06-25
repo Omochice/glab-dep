@@ -76,7 +76,7 @@ func SearchMRs(params SearchParams) ([]types.MR, error) {
 			status, err := GetMRStatus(allMRs[idx].ProjectID, allMRs[idx].IID)
 			if err == nil {
 				allMRs[idx].CIStatus = status.Pipeline
-				allMRs[idx].Unmergeable = status.Unmergeable
+				allMRs[idx].UnmergeableReason = status.UnmergeableReason
 			}
 		}(i)
 	}
@@ -262,9 +262,9 @@ type MRStatus struct {
 	// Pipeline is the head pipeline status, normalized to success, pending,
 	// failure, or empty when there is no pipeline.
 	Pipeline string
-	// Unmergeable reports whether the MR cannot currently be merged (for
-	// example, because of merge conflicts).
-	Unmergeable bool
+	// UnmergeableReason names why the MR cannot currently be merged (for
+	// example, "conflict"), or is empty when the MR is mergeable.
+	UnmergeableReason string
 }
 
 // GetMRStatus returns the mergeability status of a merge request, reading both
@@ -279,9 +279,6 @@ func GetMRStatus(projectID, iid int) (MRStatus, error) {
 }
 
 // parseMRStatus decodes a GitLab merge request detail response into an MRStatus.
-// An MR counts as unmergeable when GitLab sets the has_conflicts flag or reports
-// "conflict" as the detailed merge status; the latter covers cases where the
-// flag has not been computed yet.
 func parseMRStatus(data []byte) (MRStatus, error) {
 	var detail struct {
 		HeadPipeline struct {
@@ -295,9 +292,20 @@ func parseMRStatus(data []byte) (MRStatus, error) {
 	}
 
 	return MRStatus{
-		Pipeline:    normalizePipelineStatus(detail.HeadPipeline.Status),
-		Unmergeable: detail.HasConflicts || detail.DetailedMergeStatus == "conflict",
+		Pipeline:          normalizePipelineStatus(detail.HeadPipeline.Status),
+		UnmergeableReason: unmergeableReason(detail.HasConflicts, detail.DetailedMergeStatus),
 	}, nil
+}
+
+// unmergeableReason maps a merge request's conflict flag and detailed merge
+// status onto the reason it cannot be merged, or "" when it is mergeable. The
+// has_conflicts flag and a "conflict" detailed status both mean a conflict; the
+// latter covers cases where the flag has not been computed yet.
+func unmergeableReason(hasConflicts bool, detailedMergeStatus string) string {
+	if hasConflicts || detailedMergeStatus == "conflict" {
+		return "conflict"
+	}
+	return ""
 }
 
 // normalizePipelineStatus maps GitLab pipeline statuses onto the three states

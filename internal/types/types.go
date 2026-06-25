@@ -10,10 +10,11 @@ type MR struct {
 	URL       string `json:"url"`
 	HeadSHA   string `json:"-"`         // head commit SHA
 	CIStatus  string `json:"ci_status"` // Pipeline status: success, pending, failure, or empty
-	// Unmergeable reports whether the MR currently cannot be merged (for
-	// example, because of merge conflicts). Such an MR is gated like a failed
-	// pipeline rather than offered as a ready-to-merge target.
-	Unmergeable bool `json:"unmergeable"`
+	// UnmergeableReason names why the MR currently cannot be merged (for
+	// example, "conflict"), or is empty when the MR is mergeable. An unmergeable
+	// MR is gated like a failed pipeline rather than offered as a ready-to-merge
+	// target.
+	UnmergeableReason string `json:"unmergeable_reason"`
 }
 
 // Group represents a collection of MRs for the same package@version

@@ -10,7 +10,7 @@ import (
 func TestFilterMRsExcludesConflictsWhenChecksRequired(t *testing.T) {
 	mrs := []types.MR{
 		{IID: 1, Project: "group/clean", CIStatus: "success"},
-		{IID: 2, Project: "group/conflict", CIStatus: "success", Unmergeable: true},
+		{IID: 2, Project: "group/conflict", CIStatus: "success", UnmergeableReason: "conflict"},
 	}
 
 	m := NewModel(mrs, "merge", true, ModeMerge, gitlab.SearchParams{}, nil)
@@ -26,7 +26,7 @@ func TestFilterMRsExcludesConflictsWhenChecksRequired(t *testing.T) {
 func TestFilterMRsKeepsConflictsWhenChecksNotRequired(t *testing.T) {
 	mrs := []types.MR{
 		{IID: 1, Project: "group/clean", CIStatus: "success"},
-		{IID: 2, Project: "group/conflict", CIStatus: "success", Unmergeable: true},
+		{IID: 2, Project: "group/conflict", CIStatus: "success", UnmergeableReason: "conflict"},
 	}
 
 	m := NewModel(mrs, "merge", false, ModeMerge, gitlab.SearchParams{}, nil)

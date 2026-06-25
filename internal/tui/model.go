@@ -511,7 +511,7 @@ func (m *Model) renderList() string {
 		// conflict marker rather than a green check.
 		status := formatCIStatus(mr.CIStatus)
 		title := mr.Title
-		if mr.Unmergeable {
+		if mr.UnmergeableReason != "" {
 			status = conflictStyle.Render("⚠")
 			title = mr.Title + conflictStyle.Render(" [conflict]")
 		}
@@ -716,7 +716,7 @@ func (m *Model) filterMRs() {
 
 		// When checks are required, only keep MRs that are actually mergeable:
 		// the pipeline must have succeeded and there must be no conflicts.
-		if m.requireChecks && (mr.CIStatus != "success" || mr.Unmergeable) {
+		if m.requireChecks && (mr.CIStatus != "success" || mr.UnmergeableReason != "") {
 			continue
 		}
 

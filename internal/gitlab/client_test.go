@@ -64,34 +64,34 @@ func TestNormalizePipelineStatus(t *testing.T) {
 
 func TestParseMRStatus(t *testing.T) {
 	tests := []struct {
-		name            string
-		body            string
-		wantPipeline    string
-		wantUnmergeable bool
+		name         string
+		body         string
+		wantPipeline string
+		wantReason   string
 	}{
 		{
-			name:            "mergeable with passing pipeline",
-			body:            `{"head_pipeline":{"status":"success"},"has_conflicts":false,"detailed_merge_status":"mergeable"}`,
-			wantPipeline:    "success",
-			wantUnmergeable: false,
+			name:         "mergeable with passing pipeline",
+			body:         `{"head_pipeline":{"status":"success"},"has_conflicts":false,"detailed_merge_status":"mergeable"}`,
+			wantPipeline: "success",
+			wantReason:   "",
 		},
 		{
-			name:            "has_conflicts flag set",
-			body:            `{"head_pipeline":{"status":"success"},"has_conflicts":true,"detailed_merge_status":"mergeable"}`,
-			wantPipeline:    "success",
-			wantUnmergeable: true,
+			name:         "has_conflicts flag set",
+			body:         `{"head_pipeline":{"status":"success"},"has_conflicts":true,"detailed_merge_status":"mergeable"}`,
+			wantPipeline: "success",
+			wantReason:   "conflict",
 		},
 		{
-			name:            "detailed_merge_status reports conflict",
-			body:            `{"head_pipeline":{"status":"success"},"has_conflicts":false,"detailed_merge_status":"conflict"}`,
-			wantPipeline:    "success",
-			wantUnmergeable: true,
+			name:         "detailed_merge_status reports conflict",
+			body:         `{"head_pipeline":{"status":"success"},"has_conflicts":false,"detailed_merge_status":"conflict"}`,
+			wantPipeline: "success",
+			wantReason:   "conflict",
 		},
 		{
-			name:            "missing fields default to mergeable",
-			body:            `{"head_pipeline":{"status":"running"}}`,
-			wantPipeline:    "pending",
-			wantUnmergeable: false,
+			name:         "missing fields default to mergeable",
+			body:         `{"head_pipeline":{"status":"running"}}`,
+			wantPipeline: "pending",
+			wantReason:   "",
 		},
 	}
 
@@ -104,8 +104,8 @@ func TestParseMRStatus(t *testing.T) {
 			if got.Pipeline != tt.wantPipeline {
 				t.Fatalf("Pipeline = %q, want %q", got.Pipeline, tt.wantPipeline)
 			}
-			if got.Unmergeable != tt.wantUnmergeable {
-				t.Fatalf("Unmergeable = %v, want %v", got.Unmergeable, tt.wantUnmergeable)
+			if got.UnmergeableReason != tt.wantReason {
+				t.Fatalf("UnmergeableReason = %q, want %q", got.UnmergeableReason, tt.wantReason)
 			}
 		})
 	}
