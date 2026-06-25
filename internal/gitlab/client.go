@@ -60,8 +60,8 @@ func SearchMRs(params SearchParams) ([]types.MR, error) {
 		}
 	}
 
-	// Fetch each MR's mergeability status (pipeline + mergeability state)
-	// concurrently with a worker pool
+	// Fetch each MR's pipeline and mergeability status concurrently with a
+	// worker pool
 	const maxWorkers = 10
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, maxWorkers)
@@ -297,14 +297,11 @@ func parseMRStatus(data []byte) (MRStatus, error) {
 	}, nil
 }
 
-// unmergeableReason maps a merge request's conflict flag and detailed merge
-// status onto the reason it cannot be merged, or "" when it is mergeable. Only
-// structural blockers are reported here; CI and approval state are gated
-// separately, so detailed statuses such as "ci_must_pass" are not treated as
-// unmergeable. The has_conflicts flag and a "conflict" detailed status both
-// mean a conflict; the latter covers cases where the flag has not been computed
-// yet. "need_rebase" means the source branch trails an advanced target on a
-// project that merges by fast-forward.
+// unmergeableReason reports why the MR cannot be merged, or "" when it can.
+// CI and approval state are gated elsewhere, so only structural blockers count
+// here: a conflict (has_conflicts can lag, so a "conflict" status counts too)
+// or "need_rebase", which on fast-forward projects means the branch trails its
+// target.
 func unmergeableReason(hasConflicts bool, detailedMergeStatus string) string {
 	switch {
 	case hasConflicts || detailedMergeStatus == "conflict":

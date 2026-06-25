@@ -506,11 +506,9 @@ func (m *Model) renderList() string {
 			checkbox = selectedStyle.Render("[✓]")
 		}
 
-		// The CI marker is left as-is; an unmergeable MR is flagged with an
-		// additional warning marker and a tag naming the blocker. The marker
-		// slot is always reserved (a blank when mergeable) so the project
-		// column stays aligned across rows.
 		status := formatCIStatus(mr.CIStatus)
+		// Reserve the marker slot even when mergeable so the project column
+		// stays aligned across rows.
 		marker := " "
 		title := mr.Title
 		if label := unmergeableLabel(mr.UnmergeableReason); label != "" {
@@ -730,8 +728,8 @@ func (m *Model) filterMRs() {
 			}
 		}
 
-		// When checks are required, only keep MRs that are actually mergeable:
-		// the pipeline must have succeeded and there must be no conflicts.
+		// When checks are required, keep only MRs ready to merge: a successful
+		// pipeline and no blocking reason.
 		if m.requireChecks && (mr.CIStatus != "success" || mr.UnmergeableReason != "") {
 			continue
 		}
