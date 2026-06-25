@@ -507,13 +507,13 @@ func (m *Model) renderList() string {
 		}
 
 		// A conflicting MR is unmergeable, so it must not read as a ready,
-		// green target: show a conflict marker instead of the pipeline tick
-		// and color the whole row with the warning style.
+		// green target: replace the pipeline tick with a warning-colored
+		// conflict marker rather than a green check.
 		status := formatCIStatus(mr.CIStatus)
 		title := mr.Title
 		if mr.HasConflicts {
-			status = "⚠"
-			title = mr.Title + " [conflict]"
+			status = conflictStyle.Render("⚠")
+			title = mr.Title + conflictStyle.Render(" [conflict]")
 		}
 
 		line := fmt.Sprintf("%s %s %s %s !%d - %s",
@@ -525,11 +525,8 @@ func (m *Model) renderList() string {
 			title,
 		)
 
-		switch {
-		case i == m.cursor:
+		if i == m.cursor {
 			line = cursorStyle.Render(line)
-		case mr.HasConflicts:
-			line = conflictStyle.Render(line)
 		}
 
 		s.WriteString(line)
