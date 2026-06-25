@@ -60,7 +60,8 @@ func SearchMRs(params SearchParams) ([]types.MR, error) {
 		}
 	}
 
-	// Fetch pipeline status concurrently with a worker pool
+	// Fetch each MR's mergeability status (pipeline + conflict state)
+	// concurrently with a worker pool
 	const maxWorkers = 10
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, maxWorkers)
