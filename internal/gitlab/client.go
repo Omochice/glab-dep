@@ -76,7 +76,7 @@ func SearchMRs(params SearchParams) ([]types.MR, error) {
 			status, err := GetMRStatus(allMRs[idx].ProjectID, allMRs[idx].IID)
 			if err == nil {
 				allMRs[idx].CIStatus = status.Pipeline
-				allMRs[idx].HasConflicts = status.HasConflicts
+				allMRs[idx].Unmergeable = status.Unmergeable
 			}
 		}(i)
 	}
@@ -262,13 +262,13 @@ type MRStatus struct {
 	// Pipeline is the head pipeline status, normalized to success, pending,
 	// failure, or empty when there is no pipeline.
 	Pipeline string
-	// HasConflicts reports whether the MR has merge conflicts and therefore
-	// cannot be merged.
-	HasConflicts bool
+	// Unmergeable reports whether the MR cannot currently be merged (for
+	// example, because of merge conflicts).
+	Unmergeable bool
 }
 
 // GetMRStatus returns the mergeability status of a merge request, reading both
-// the head pipeline status and the conflict state from one detail request.
+// the head pipeline status and the mergeability state from one detail request.
 func GetMRStatus(projectID, iid int) (MRStatus, error) {
 	path := fmt.Sprintf("projects/%d/merge_requests/%d", projectID, iid)
 	out, err := glab.Run("api", path)
@@ -279,7 +279,7 @@ func GetMRStatus(projectID, iid int) (MRStatus, error) {
 }
 
 // parseMRStatus decodes a GitLab merge request detail response into an MRStatus.
-// An MR counts as conflicting when GitLab sets the has_conflicts flag or reports
+// An MR counts as unmergeable when GitLab sets the has_conflicts flag or reports
 // "conflict" as the detailed merge status; the latter covers cases where the
 // flag has not been computed yet.
 func parseMRStatus(data []byte) (MRStatus, error) {
@@ -295,8 +295,8 @@ func parseMRStatus(data []byte) (MRStatus, error) {
 	}
 
 	return MRStatus{
-		Pipeline:     normalizePipelineStatus(detail.HeadPipeline.Status),
-		HasConflicts: detail.HasConflicts || detail.DetailedMergeStatus == "conflict",
+		Pipeline:    normalizePipelineStatus(detail.HeadPipeline.Status),
+		Unmergeable: detail.HasConflicts || detail.DetailedMergeStatus == "conflict",
 	}, nil
 }
 
