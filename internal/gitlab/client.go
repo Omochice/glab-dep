@@ -60,7 +60,7 @@ func SearchMRs(params SearchParams) ([]types.MR, error) {
 		}
 	}
 
-	// Fetch each MR's mergeability status (pipeline + conflict state)
+	// Fetch each MR's mergeability status (pipeline + mergeability state)
 	// concurrently with a worker pool
 	const maxWorkers = 10
 	var wg sync.WaitGroup
@@ -298,12 +298,19 @@ func parseMRStatus(data []byte) (MRStatus, error) {
 }
 
 // unmergeableReason maps a merge request's conflict flag and detailed merge
-// status onto the reason it cannot be merged, or "" when it is mergeable. The
-// has_conflicts flag and a "conflict" detailed status both mean a conflict; the
-// latter covers cases where the flag has not been computed yet.
+// status onto the reason it cannot be merged, or "" when it is mergeable. Only
+// structural blockers are reported here; CI and approval state are gated
+// separately, so detailed statuses such as "ci_must_pass" are not treated as
+// unmergeable. The has_conflicts flag and a "conflict" detailed status both
+// mean a conflict; the latter covers cases where the flag has not been computed
+// yet. "need_rebase" means the source branch trails an advanced target on a
+// project that merges by fast-forward.
 func unmergeableReason(hasConflicts bool, detailedMergeStatus string) string {
-	if hasConflicts || detailedMergeStatus == "conflict" {
-		return "conflict"
+	switch {
+	case hasConflicts || detailedMergeStatus == "conflict":
+		return types.ReasonConflict
+	case detailedMergeStatus == "need_rebase":
+		return types.ReasonNeedRebase
 	}
 	return ""
 }

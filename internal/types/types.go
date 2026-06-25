@@ -1,5 +1,13 @@
 package types
 
+// Reasons an MR cannot be merged, stored in MR.UnmergeableReason. They are
+// defined here so the producer (GitLab client) and consumer (TUI labels) share
+// one vocabulary and cannot drift apart.
+const (
+	ReasonConflict   = "conflict"
+	ReasonNeedRebase = "need_rebase"
+)
+
 // MR represents a merge request
 type MR struct {
 	IID       int    `json:"iid"`

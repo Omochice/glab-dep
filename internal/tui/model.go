@@ -210,9 +210,9 @@ var (
 	ciUnknownStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("240"))
 
-	conflictStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("196")).
-			Bold(true)
+	unmergeableStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("196")).
+				Bold(true)
 )
 
 func NewModel(mrs []types.MR, mergeMethod string, requireChecks bool, mode ExecutionMode, searchParams gitlab.SearchParams, customPatterns []string) *Model {
@@ -506,14 +506,15 @@ func (m *Model) renderList() string {
 			checkbox = selectedStyle.Render("[✓]")
 		}
 
-		// A conflicting MR is unmergeable, so it must not read as a ready,
-		// green target: replace the pipeline tick with a warning-colored
-		// conflict marker rather than a green check.
+		// Pipeline state and mergeability are independent axes, so the CI icon
+		// is left untouched and an unmergeable MR is flagged with a separate
+		// warning-colored tag instead. Collapsing both into one icon would hide
+		// the pipeline state of an MR that is, say, still running yet already
+		// trailing its target branch.
 		status := formatCIStatus(mr.CIStatus)
 		title := mr.Title
-		if mr.UnmergeableReason != "" {
-			status = conflictStyle.Render("⚠")
-			title = mr.Title + conflictStyle.Render(" [conflict]")
+		if label := unmergeableLabel(mr.UnmergeableReason); label != "" {
+			title = mr.Title + " " + unmergeableStyle.Render(label)
 		}
 
 		line := fmt.Sprintf("%s %s %s %s !%d - %s",
@@ -666,6 +667,19 @@ func (m *Model) hasSelection() bool {
 		}
 	}
 	return false
+}
+
+// unmergeableLabel returns the tag shown next to an MR that cannot be merged,
+// or "" when the MR is mergeable.
+func unmergeableLabel(reason string) string {
+	switch reason {
+	case types.ReasonConflict:
+		return "[conflict]"
+	case types.ReasonNeedRebase:
+		return "[needs rebase]"
+	default:
+		return ""
+	}
 }
 
 func formatCIStatus(status string) string {

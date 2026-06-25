@@ -88,6 +88,12 @@ func TestParseMRStatus(t *testing.T) {
 			wantReason:   "conflict",
 		},
 		{
+			name:         "detailed_merge_status needs rebase",
+			body:         `{"head_pipeline":{"status":"success"},"has_conflicts":false,"detailed_merge_status":"need_rebase"}`,
+			wantPipeline: "success",
+			wantReason:   "need_rebase",
+		},
+		{
 			name:         "missing fields default to mergeable",
 			body:         `{"head_pipeline":{"status":"running"}}`,
 			wantPipeline: "pending",
