@@ -27,6 +27,55 @@ func TestNormalizePipelineStatus(t *testing.T) {
 	}
 }
 
+func TestParseMRStatus(t *testing.T) {
+	tests := []struct {
+		name             string
+		body             string
+		wantPipeline     string
+		wantHasConflicts bool
+	}{
+		{
+			name:             "mergeable with passing pipeline",
+			body:             `{"head_pipeline":{"status":"success"},"has_conflicts":false,"detailed_merge_status":"mergeable"}`,
+			wantPipeline:     "success",
+			wantHasConflicts: false,
+		},
+		{
+			name:             "has_conflicts flag set",
+			body:             `{"head_pipeline":{"status":"success"},"has_conflicts":true,"detailed_merge_status":"mergeable"}`,
+			wantPipeline:     "success",
+			wantHasConflicts: true,
+		},
+		{
+			name:             "detailed_merge_status reports conflict",
+			body:             `{"head_pipeline":{"status":"success"},"has_conflicts":false,"detailed_merge_status":"conflict"}`,
+			wantPipeline:     "success",
+			wantHasConflicts: true,
+		},
+		{
+			name:             "missing fields default to mergeable",
+			body:             `{"head_pipeline":{"status":"running"}}`,
+			wantPipeline:     "pending",
+			wantHasConflicts: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseMRStatus([]byte(tt.body))
+			if err != nil {
+				t.Fatalf("parseMRStatus returned error: %v", err)
+			}
+			if got.Pipeline != tt.wantPipeline {
+				t.Fatalf("Pipeline = %q, want %q", got.Pipeline, tt.wantPipeline)
+			}
+			if got.HasConflicts != tt.wantHasConflicts {
+				t.Fatalf("HasConflicts = %v, want %v", got.HasConflicts, tt.wantHasConflicts)
+			}
+		})
+	}
+}
+
 func TestProjectPathFromURL(t *testing.T) {
 	tests := []struct {
 		name   string

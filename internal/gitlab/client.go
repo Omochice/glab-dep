@@ -72,9 +72,10 @@ func SearchMRs(params SearchParams) ([]types.MR, error) {
 			semaphore <- struct{}{}        // Acquire
 			defer func() { <-semaphore }() // Release
 
-			status, err := GetPipelineStatus(allMRs[idx].ProjectID, allMRs[idx].IID)
+			status, err := GetMRStatus(allMRs[idx].ProjectID, allMRs[idx].IID)
 			if err == nil {
-				allMRs[idx].CIStatus = status
+				allMRs[idx].CIStatus = status.Pipeline
+				allMRs[idx].HasConflicts = status.HasConflicts
 			}
 		}(i)
 	}
@@ -242,25 +243,48 @@ func MergeMR(project string, iid int, method string, autoMerge bool) error {
 	return nil
 }
 
-// GetPipelineStatus returns the head pipeline status of a merge request,
-// normalized to success, pending, failure, or empty when there is no pipeline.
-func GetPipelineStatus(projectID, iid int) (string, error) {
+// MRStatus carries the mergeability signals read from a merge request's
+// detail endpoint in a single request.
+type MRStatus struct {
+	// Pipeline is the head pipeline status, normalized to success, pending,
+	// failure, or empty when there is no pipeline.
+	Pipeline string
+	// HasConflicts reports whether the MR has merge conflicts and therefore
+	// cannot be merged.
+	HasConflicts bool
+}
+
+// GetMRStatus returns the mergeability status of a merge request, reading both
+// the head pipeline status and the conflict state from one detail request.
+func GetMRStatus(projectID, iid int) (MRStatus, error) {
 	path := fmt.Sprintf("projects/%d/merge_requests/%d", projectID, iid)
 	out, err := glab.Run("api", path)
 	if err != nil {
-		return "", err
+		return MRStatus{}, err
 	}
+	return parseMRStatus([]byte(out))
+}
 
+// parseMRStatus decodes a GitLab merge request detail response into an MRStatus.
+// An MR counts as conflicting when GitLab sets the has_conflicts flag or reports
+// "conflict" as the detailed merge status; the latter covers cases where the
+// flag has not been computed yet.
+func parseMRStatus(data []byte) (MRStatus, error) {
 	var detail struct {
 		HeadPipeline struct {
 			Status string `json:"status"`
 		} `json:"head_pipeline"`
+		HasConflicts        bool   `json:"has_conflicts"`
+		DetailedMergeStatus string `json:"detailed_merge_status"`
 	}
-	if err := json.Unmarshal([]byte(out), &detail); err != nil {
-		return "", fmt.Errorf("failed to parse MR detail: %w", err)
+	if err := json.Unmarshal(data, &detail); err != nil {
+		return MRStatus{}, fmt.Errorf("failed to parse MR detail: %w", err)
 	}
 
-	return normalizePipelineStatus(detail.HeadPipeline.Status), nil
+	return MRStatus{
+		Pipeline:     normalizePipelineStatus(detail.HeadPipeline.Status),
+		HasConflicts: detail.HasConflicts || detail.DetailedMergeStatus == "conflict",
+	}, nil
 }
 
 // normalizePipelineStatus maps GitLab pipeline statuses onto the three states
