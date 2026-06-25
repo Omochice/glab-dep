@@ -506,21 +506,23 @@ func (m *Model) renderList() string {
 			checkbox = selectedStyle.Render("[✓]")
 		}
 
-		// An unmergeable MR must not read as a ready, green target, so its
-		// pipeline icon is replaced with a warning marker and the blocking
-		// reason is appended as a tag. The CI state is irrelevant once the MR
-		// cannot be merged, so it is not also shown.
+		// The CI marker is left as-is; an unmergeable MR is flagged with an
+		// additional warning marker and a tag naming the blocker. The marker
+		// slot is always reserved (a blank when mergeable) so the project
+		// column stays aligned across rows.
 		status := formatCIStatus(mr.CIStatus)
+		marker := " "
 		title := mr.Title
 		if label := unmergeableLabel(mr.UnmergeableReason); label != "" {
-			status = unmergeableStyle.Render("⚠")
+			marker = unmergeableStyle.Render("⚠")
 			title = mr.Title + " " + unmergeableStyle.Render(label)
 		}
 
-		line := fmt.Sprintf("%s %s %s %s !%d - %s",
+		line := fmt.Sprintf("%s %s %s %s %s !%d - %s",
 			cursor,
 			checkbox,
 			status,
+			marker,
 			shortenProjectPath(mr.Project),
 			mr.IID,
 			title,
