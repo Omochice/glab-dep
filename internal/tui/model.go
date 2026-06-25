@@ -506,14 +506,14 @@ func (m *Model) renderList() string {
 			checkbox = selectedStyle.Render("[✓]")
 		}
 
-		// Pipeline state and mergeability are independent axes, so the CI icon
-		// is left untouched and an unmergeable MR is flagged with a separate
-		// warning-colored tag instead. Collapsing both into one icon would hide
-		// the pipeline state of an MR that is, say, still running yet already
-		// trailing its target branch.
+		// An unmergeable MR must not read as a ready, green target, so its
+		// pipeline icon is replaced with a warning marker and the blocking
+		// reason is appended as a tag. The CI state is irrelevant once the MR
+		// cannot be merged, so it is not also shown.
 		status := formatCIStatus(mr.CIStatus)
 		title := mr.Title
 		if label := unmergeableLabel(mr.UnmergeableReason); label != "" {
+			status = unmergeableStyle.Render("⚠")
 			title = mr.Title + " " + unmergeableStyle.Render(label)
 		}
 
