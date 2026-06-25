@@ -209,6 +209,10 @@ var (
 
 	ciUnknownStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("240"))
+
+	conflictStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("196")).
+			Bold(true)
 )
 
 func NewModel(mrs []types.MR, mergeMethod string, requireChecks bool, mode ExecutionMode, searchParams gitlab.SearchParams, customPatterns []string) *Model {
@@ -502,19 +506,30 @@ func (m *Model) renderList() string {
 			checkbox = selectedStyle.Render("[✓]")
 		}
 
-		ciStatus := formatCIStatus(mr.CIStatus)
+		// A conflicting MR is unmergeable, so it must not read as a ready,
+		// green target: show a conflict marker instead of the pipeline tick
+		// and color the whole row with the warning style.
+		status := formatCIStatus(mr.CIStatus)
+		title := mr.Title
+		if mr.HasConflicts {
+			status = "⚠"
+			title = mr.Title + " [conflict]"
+		}
 
 		line := fmt.Sprintf("%s %s %s %s !%d - %s",
 			cursor,
 			checkbox,
-			ciStatus,
+			status,
 			shortenProjectPath(mr.Project),
 			mr.IID,
-			mr.Title,
+			title,
 		)
 
-		if i == m.cursor {
+		switch {
+		case i == m.cursor:
 			line = cursorStyle.Render(line)
+		case mr.HasConflicts:
+			line = conflictStyle.Render(line)
 		}
 
 		s.WriteString(line)
@@ -702,8 +717,9 @@ func (m *Model) filterMRs() {
 			}
 		}
 
-		// Filter by CI status if requireChecks is enabled
-		if m.requireChecks && mr.CIStatus != "success" {
+		// When checks are required, only keep MRs that are actually mergeable:
+		// the pipeline must have succeeded and there must be no conflicts.
+		if m.requireChecks && (mr.CIStatus != "success" || mr.HasConflicts) {
 			continue
 		}
 
