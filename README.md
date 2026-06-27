@@ -40,6 +40,21 @@ glab extension install .
 
 Once installed it is invoked as `glab dep`.
 
+### Build with Nix
+
+This repository is a Nix flake exposing the binary as `packages.default`:
+
+```bash
+# Build the binary (./result/bin/glab-dep)
+nix build
+
+# Or run it directly
+nix run . -- --help
+```
+
+The Nix build wraps the binary so `glab` is available on `PATH`, while a
+`glab` already installed in your environment still takes precedence.
+
 ## Quick Start
 
 ### Interactive Mode (Recommended)
