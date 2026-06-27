@@ -3,6 +3,8 @@ package gitlab
 import (
 	"errors"
 	"testing"
+
+	"github.com/Omochice/glab-dep/internal/types"
 )
 
 func TestIsAlreadyApproved(t *testing.T) {
@@ -79,19 +81,19 @@ func TestParseMRStatus(t *testing.T) {
 			name:         "has_conflicts flag set",
 			body:         `{"head_pipeline":{"status":"success"},"has_conflicts":true,"detailed_merge_status":"mergeable"}`,
 			wantPipeline: "success",
-			wantReason:   "conflict",
+			wantReason:   types.ReasonConflict,
 		},
 		{
 			name:         "detailed_merge_status reports conflict",
 			body:         `{"head_pipeline":{"status":"success"},"has_conflicts":false,"detailed_merge_status":"conflict"}`,
 			wantPipeline: "success",
-			wantReason:   "conflict",
+			wantReason:   types.ReasonConflict,
 		},
 		{
 			name:         "detailed_merge_status needs rebase",
 			body:         `{"head_pipeline":{"status":"success"},"has_conflicts":false,"detailed_merge_status":"need_rebase"}`,
 			wantPipeline: "success",
-			wantReason:   "need_rebase",
+			wantReason:   types.ReasonNeedRebase,
 		},
 		{
 			name:         "missing fields default to mergeable",
