@@ -224,10 +224,9 @@ func ApproveMR(project string, iid int) error {
 	return fmt.Errorf("failed to approve MR !%d: %w", iid, err)
 }
 
-// isAlreadyApproved reports whether an approve error is GitLab's 401 response
-// for a merge request the current user has already approved. A genuinely
-// unauthorized token surfaces the same status, but in that case the subsequent
-// merge fails with its own error, so treating this as success is safe.
+// isAlreadyApproved matches GitLab's 401 response. A genuinely unauthorized
+// token returns 401 too, but then the follow-up merge fails on its own, so
+// treating it as success here is safe.
 func isAlreadyApproved(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "401")
 }
