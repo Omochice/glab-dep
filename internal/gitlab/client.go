@@ -212,11 +212,23 @@ func GroupMRs(mrs []types.MR, customPatterns []string) map[string][]types.MR {
 }
 
 // ApproveMR approves a merge request via the glab CLI.
+//
+// Approval is idempotent from the caller's perspective: GitLab answers a repeat
+// approval from the same user with 401 Unauthorized, so an already-approved MR
+// is reported as success instead of aborting a follow-up merge.
 func ApproveMR(project string, iid int) error {
-	if _, err := glab.Run("mr", "approve", strconv.Itoa(iid), "-R", project); err != nil {
-		return fmt.Errorf("failed to approve MR !%d: %w", iid, err)
+	_, err := glab.Run("mr", "approve", strconv.Itoa(iid), "-R", project)
+	if err == nil || isAlreadyApproved(err) {
+		return nil
 	}
-	return nil
+	return fmt.Errorf("failed to approve MR !%d: %w", iid, err)
+}
+
+// isAlreadyApproved matches GitLab's 401 response. A genuinely unauthorized
+// token returns 401 too, but then the follow-up merge fails on its own, so
+// treating it as success here is safe.
+func isAlreadyApproved(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "401")
 }
 
 // MergeMR merges a merge request via the glab CLI.
