@@ -210,9 +210,9 @@ var (
 	ciUnknownStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("240"))
 
-	conflictStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("196")).
-			Bold(true)
+	unmergeableStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("196")).
+				Bold(true)
 )
 
 func NewModel(mrs []types.MR, mergeMethod string, requireChecks bool, mode ExecutionMode, searchParams gitlab.SearchParams, customPatterns []string) *Model {
@@ -506,20 +506,21 @@ func (m *Model) renderList() string {
 			checkbox = selectedStyle.Render("[✓]")
 		}
 
-		// A conflicting MR is unmergeable, so it must not read as a ready,
-		// green target: replace the pipeline tick with a warning-colored
-		// conflict marker rather than a green check.
 		status := formatCIStatus(mr.CIStatus)
+		// Reserve the marker slot even when mergeable so the project column
+		// stays aligned across rows.
+		marker := " "
 		title := mr.Title
-		if mr.HasConflicts {
-			status = conflictStyle.Render("⚠")
-			title = mr.Title + conflictStyle.Render(" [conflict]")
+		if label := unmergeableLabel(mr.UnmergeableReason); label != "" {
+			marker = unmergeableStyle.Render("⚠")
+			title = mr.Title + " " + unmergeableStyle.Render(label)
 		}
 
-		line := fmt.Sprintf("%s %s %s %s !%d - %s",
+		line := fmt.Sprintf("%s %s %s %s %s !%d - %s",
 			cursor,
 			checkbox,
 			status,
+			marker,
 			shortenProjectPath(mr.Project),
 			mr.IID,
 			title,
@@ -668,6 +669,19 @@ func (m *Model) hasSelection() bool {
 	return false
 }
 
+// unmergeableLabel returns the tag shown next to an MR that cannot be merged,
+// or "" when the MR is mergeable.
+func unmergeableLabel(reason string) string {
+	switch reason {
+	case types.ReasonConflict:
+		return "[conflict]"
+	case types.ReasonNeedRebase:
+		return "[needs rebase]"
+	default:
+		return ""
+	}
+}
+
 func formatCIStatus(status string) string {
 	switch status {
 	case "success":
@@ -714,9 +728,9 @@ func (m *Model) filterMRs() {
 			}
 		}
 
-		// When checks are required, only keep MRs that are actually mergeable:
-		// the pipeline must have succeeded and there must be no conflicts.
-		if m.requireChecks && (mr.CIStatus != "success" || mr.HasConflicts) {
+		// When checks are required, keep only MRs ready to merge: a successful
+		// pipeline and no blocking reason.
+		if m.requireChecks && (mr.CIStatus != "success" || mr.UnmergeableReason != "") {
 			continue
 		}
 

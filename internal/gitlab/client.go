@@ -60,8 +60,8 @@ func SearchMRs(params SearchParams) ([]types.MR, error) {
 		}
 	}
 
-	// Fetch each MR's mergeability status (pipeline + conflict state)
-	// concurrently with a worker pool
+	// Fetch each MR's pipeline and mergeability status concurrently with a
+	// worker pool
 	const maxWorkers = 10
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, maxWorkers)
@@ -76,7 +76,7 @@ func SearchMRs(params SearchParams) ([]types.MR, error) {
 			status, err := GetMRStatus(allMRs[idx].ProjectID, allMRs[idx].IID)
 			if err == nil {
 				allMRs[idx].CIStatus = status.Pipeline
-				allMRs[idx].HasConflicts = status.HasConflicts
+				allMRs[idx].UnmergeableReason = status.UnmergeableReason
 			}
 		}(i)
 	}
@@ -262,13 +262,13 @@ type MRStatus struct {
 	// Pipeline is the head pipeline status, normalized to success, pending,
 	// failure, or empty when there is no pipeline.
 	Pipeline string
-	// HasConflicts reports whether the MR has merge conflicts and therefore
-	// cannot be merged.
-	HasConflicts bool
+	// UnmergeableReason names why the MR cannot currently be merged (for
+	// example, "conflict"), or is empty when the MR is mergeable.
+	UnmergeableReason string
 }
 
 // GetMRStatus returns the mergeability status of a merge request, reading both
-// the head pipeline status and the conflict state from one detail request.
+// the head pipeline status and the mergeability state from one detail request.
 func GetMRStatus(projectID, iid int) (MRStatus, error) {
 	path := fmt.Sprintf("projects/%d/merge_requests/%d", projectID, iid)
 	out, err := glab.Run("api", path)
@@ -279,9 +279,6 @@ func GetMRStatus(projectID, iid int) (MRStatus, error) {
 }
 
 // parseMRStatus decodes a GitLab merge request detail response into an MRStatus.
-// An MR counts as conflicting when GitLab sets the has_conflicts flag or reports
-// "conflict" as the detailed merge status; the latter covers cases where the
-// flag has not been computed yet.
 func parseMRStatus(data []byte) (MRStatus, error) {
 	var detail struct {
 		HeadPipeline struct {
@@ -295,9 +292,24 @@ func parseMRStatus(data []byte) (MRStatus, error) {
 	}
 
 	return MRStatus{
-		Pipeline:     normalizePipelineStatus(detail.HeadPipeline.Status),
-		HasConflicts: detail.HasConflicts || detail.DetailedMergeStatus == "conflict",
+		Pipeline:          normalizePipelineStatus(detail.HeadPipeline.Status),
+		UnmergeableReason: unmergeableReason(detail.HasConflicts, detail.DetailedMergeStatus),
 	}, nil
+}
+
+// unmergeableReason reports why the MR cannot be merged, or "" when it can.
+// CI and approval state are gated elsewhere, so only structural blockers count
+// here: a conflict (has_conflicts can lag, so a "conflict" status counts too)
+// or "need_rebase", which on fast-forward projects means the branch trails its
+// target.
+func unmergeableReason(hasConflicts bool, detailedMergeStatus string) string {
+	switch {
+	case hasConflicts || detailedMergeStatus == "conflict":
+		return types.ReasonConflict
+	case detailedMergeStatus == "need_rebase":
+		return types.ReasonNeedRebase
+	}
+	return ""
 }
 
 // normalizePipelineStatus maps GitLab pipeline statuses onto the three states

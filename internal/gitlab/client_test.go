@@ -3,6 +3,8 @@ package gitlab
 import (
 	"errors"
 	"testing"
+
+	"github.com/Omochice/glab-dep/internal/types"
 )
 
 func TestIsAlreadyApproved(t *testing.T) {
@@ -64,34 +66,40 @@ func TestNormalizePipelineStatus(t *testing.T) {
 
 func TestParseMRStatus(t *testing.T) {
 	tests := []struct {
-		name             string
-		body             string
-		wantPipeline     string
-		wantHasConflicts bool
+		name         string
+		body         string
+		wantPipeline string
+		wantReason   string
 	}{
 		{
-			name:             "mergeable with passing pipeline",
-			body:             `{"head_pipeline":{"status":"success"},"has_conflicts":false,"detailed_merge_status":"mergeable"}`,
-			wantPipeline:     "success",
-			wantHasConflicts: false,
+			name:         "mergeable with passing pipeline",
+			body:         `{"head_pipeline":{"status":"success"},"has_conflicts":false,"detailed_merge_status":"mergeable"}`,
+			wantPipeline: "success",
+			wantReason:   "",
 		},
 		{
-			name:             "has_conflicts flag set",
-			body:             `{"head_pipeline":{"status":"success"},"has_conflicts":true,"detailed_merge_status":"mergeable"}`,
-			wantPipeline:     "success",
-			wantHasConflicts: true,
+			name:         "has_conflicts flag set",
+			body:         `{"head_pipeline":{"status":"success"},"has_conflicts":true,"detailed_merge_status":"mergeable"}`,
+			wantPipeline: "success",
+			wantReason:   types.ReasonConflict,
 		},
 		{
-			name:             "detailed_merge_status reports conflict",
-			body:             `{"head_pipeline":{"status":"success"},"has_conflicts":false,"detailed_merge_status":"conflict"}`,
-			wantPipeline:     "success",
-			wantHasConflicts: true,
+			name:         "detailed_merge_status reports conflict",
+			body:         `{"head_pipeline":{"status":"success"},"has_conflicts":false,"detailed_merge_status":"conflict"}`,
+			wantPipeline: "success",
+			wantReason:   types.ReasonConflict,
 		},
 		{
-			name:             "missing fields default to mergeable",
-			body:             `{"head_pipeline":{"status":"running"}}`,
-			wantPipeline:     "pending",
-			wantHasConflicts: false,
+			name:         "detailed_merge_status needs rebase",
+			body:         `{"head_pipeline":{"status":"success"},"has_conflicts":false,"detailed_merge_status":"need_rebase"}`,
+			wantPipeline: "success",
+			wantReason:   types.ReasonNeedRebase,
+		},
+		{
+			name:         "missing fields default to mergeable",
+			body:         `{"head_pipeline":{"status":"running"}}`,
+			wantPipeline: "pending",
+			wantReason:   "",
 		},
 	}
 
@@ -104,8 +112,8 @@ func TestParseMRStatus(t *testing.T) {
 			if got.Pipeline != tt.wantPipeline {
 				t.Fatalf("Pipeline = %q, want %q", got.Pipeline, tt.wantPipeline)
 			}
-			if got.HasConflicts != tt.wantHasConflicts {
-				t.Fatalf("HasConflicts = %v, want %v", got.HasConflicts, tt.wantHasConflicts)
+			if got.UnmergeableReason != tt.wantReason {
+				t.Fatalf("UnmergeableReason = %q, want %q", got.UnmergeableReason, tt.wantReason)
 			}
 		})
 	}

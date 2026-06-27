@@ -1,5 +1,12 @@
 package types
 
+// Reasons an MR cannot be merged. Defined in this shared package so the
+// producer (GitLab client) and consumer (TUI) cannot drift apart.
+const (
+	ReasonConflict   = "conflict"
+	ReasonNeedRebase = "need_rebase"
+)
+
 // MR represents a merge request
 type MR struct {
 	IID       int    `json:"iid"`
@@ -10,10 +17,10 @@ type MR struct {
 	URL       string `json:"url"`
 	HeadSHA   string `json:"-"`         // head commit SHA
 	CIStatus  string `json:"ci_status"` // Pipeline status: success, pending, failure, or empty
-	// HasConflicts reports whether the MR currently cannot be merged because of
-	// merge conflicts. Such an MR is unmergeable, so it is gated like a failed
-	// pipeline rather than offered as a ready-to-merge target.
-	HasConflicts bool `json:"has_conflicts"`
+	// UnmergeableReason is empty when the MR is mergeable; otherwise it names
+	// the blocker, which gates the MR like a failed pipeline instead of
+	// offering it as a ready-to-merge target.
+	UnmergeableReason string `json:"unmergeable_reason"`
 }
 
 // Group represents a collection of MRs for the same package@version
